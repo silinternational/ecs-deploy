@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+set -e
+set -x
+
+if [[ $# < 7 ]]; then
+  echo "Usage: ecs-deploy <aws_access_key> <aws_secret_key> <aws_region> <cluster> <task_definition> <service> <image> [timeout]"
+  exit 1
+fi
+
+export AWS_ACCESS_KEY_ID=$1
+export AWS_SECRET_ACCESS_KEY=$2
+export AWS_DEFAULT_REGION=$3
+
+CLUSTER=$4
+TASK_DEFINITION=$5
+SERVICE=$6
+IMAGE=`eval echo $7`
+
+if [[ "x$8" == "x" ]]; then
+  TIMEOUT=80
+else
+  TIMEOUT=$8
+fi
+
+# First, get a JSON representation of the current task definition
+aws ecs describe-task-definition --task-def $TASK_DEFINITION > def
+
+# Extract the image from its tag
+if ! [[ $IMAGE =~ ^[^:]+:[^:]+$ ]]; then echo "You must specify an image with a tag" && exit 1; fi
+im=`echo $IMAGE | cut -d':' -f 1`
+tag=`echo $IMAGE | cut -d':' -f 2`
+
+# Extract out the repository from the image, if applicable
+if ! [[ $im =~ ^[^/]+/[^/]+$|^[^/]+$ ]]; then echo "Your image/repository specification string is invalid" && exit 1; fi
+repo=`echo $im | cut -d '/' -f 1`
+imend=`echo $im | cut -d '/' -f 2`
+
+# Replace the image tag in the old def
+if [[ $repo == $imend ]]; then
+  sed -i def -e "s/\(\"image\": \"$repo\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+else
+  sed -i def -e "s/\(\"image\": \"$repo\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+fi
+
+# Filter the def
+jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
+
+# Register the new task definition, and store its ARN
+NEW_TASKDEF=`aws ecs register-task-definition --cli-input-json file://newdef | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
+
+# Update the service
+aws ecs update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF
+
+# See if the service is able to come up again
+every=10
+i=0
+while expr $i '<' $TIMEOUT ; do
+  # Scan the list of running tasks for that service, and see if one of them is the
+  # new version of the task definition
+  rm -f tasks
+
+  aws ecs list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
+    | jq '.taskArns[]' \
+    | xargs -I{} aws ecs describe-tasks --cluster $CLUSTER --tasks {} >> tasks
+
+  jq < tasks > results ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus"
+
+  if grep -e "RUNNING" results; then
+    exit 0
+  fi
+
+  sleep $every
+  i=$(( $i + $every ))
+done
+
+# Timeout
+echo "ERROR: New task definition not running within $TIMEOUT seconds"
+exit 1
