@@ -3,24 +3,32 @@
 set -e
 set -x
 
-if [[ $# < 7 ]]; then
-  echo "Usage: ecs-deploy <aws_access_key> <aws_secret_key> <aws_region> <cluster> <task_definition> <service> <image> [timeout]"
+if [[ $# < 4 ]]; then
+  echo "Usage: ecs-deploy <cluster> <task_definition> <service> <image> [timeout] [aws_access_key] [aws_secret_key] [aws_region]"
   exit 1
 fi
 
-export AWS_ACCESS_KEY_ID=$1
-export AWS_SECRET_ACCESS_KEY=$2
-export AWS_DEFAULT_REGION=$3
+CLUSTER=$1
+TASK_DEFINITION=$2
+SERVICE=$3
+IMAGE=`eval echo $4`
 
-CLUSTER=$4
-TASK_DEFINITION=$5
-SERVICE=$6
-IMAGE=`eval echo $7`
-
-if [[ "x$8" == "x" ]]; then
+if [[ "x$5" == "x" ]]; then
   TIMEOUT=80
 else
-  TIMEOUT=$8
+  TIMEOUT=$5
+fi
+
+if [[ $6 ]]; then
+  export AWS_ACCESS_KEY_ID=$6
+fi
+
+if [[ $7 ]]; then
+  export AWS_SECRET_ACCESS_KEY=$7
+fi
+
+if [[ $8 ]]; then
+  export AWS_DEFAULT_REGION=$8
 fi
 
 # First, get a JSON representation of the current task definition
