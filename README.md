@@ -6,24 +6,26 @@ This script uses the Task Definition and Service entities in Amazon's ECS to ins
 Usage
 -----
 
-    ecs-deploy <aws_access_key> <aws_secret_key> <aws_region> <cluster> <task_definition> <service> <image> [timeout]
+    Required arguments:
+        -k | --aws-access-key   AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
+        -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
+        -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
+        -c | --cluster          Name of ECS cluster
+        -n | --service-name     Name of service to deploy
+        -i | --image            Name of Docker image to run, ex: mariadb:latest
 
-  * `aws_access_key`: your amazon credentials, the access key id
-  * `aws_secret_key`: the access key's corresponding secret key
-  * `aws_region`: the region your ECS Services are located in
+    Optional arguments:
+        -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
 
-  * `cluster`: the name of the cluster to operate on
-  * `task_definition`: the Task Definition to create a new revision of
-  * `service`: the name of the Service to update
-  * `image`: docker image, and tag to set
-  * `timeout`: optional, number of seconds to query Amazon before concluding that the deployment failed. Default is 80 seconds.
+    Example:
+        ecs-deploy -k ABC123 -s SECRETKEY -c production1 -n doorman-service -i docker.repo.com/doorman:latest
 
 How it works
 ------------
 
 _Note: Some nouns in the next paragraphs are capitalized to indicate that they are words which have specific meanings in AWS_
 
-Remember that in the Elastic Container Service, the relationship between the group of containers which together provide a
+Remember that in the EC2 Container Service, the relationship between the group of containers which together provide a
 useful application (e.g. a database, web frontend, and perhaps some for maintenance/cron) is specified in a Task Definition.
 The Task Definition then acts a sort of template for actually running the containers in that group. That resulting group of
 containers is known as a Task. Due to the way docker implements networking, generally you can only run one Task per Task
@@ -45,7 +47,7 @@ it will first ensure that a new Task is brought up and ready to use, so that the
 _Naturally, enough computing resources must be available in the ECS cluster for any of this to work._
 
 Consequently, all that is needed to deploy a new version of an application is to update the Service which is running its
-Tasks to point at a new version of the Task Definition. `aws_ecs_deploy.sh` uses the python `aws` utility to do this. It,
+Tasks to point at a new version of the Task Definition. `ecs-deploy` uses the python `aws` utility to do this. It,
 
   * Pulls the JSON representation of the in-use Task Definition
   * Edits it
