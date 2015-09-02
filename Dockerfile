@@ -8,7 +8,7 @@ RUN apt-get update -y \
         jq \
     && easy_install pip \
     && pip install awscli \
-    && curl -o /usr/local/bin/ecs-deploy https://github.com/silinternational/ecs-deploy/blob/master/ecs-deploy \
+    && curl -o /usr/local/bin/ecs-deploy https://raw.githubusercontent.com/silinternational/ecs-deploy/master/ecs-deploy \
     && chmod a+x /usr/local/bin/ecs-deploy
 
 ENTRYPOINT ["/usr/local/bin/ecs-deploy"]
