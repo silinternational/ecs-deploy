@@ -114,14 +114,26 @@ echo "Current task definition: $TASK_DEFINITION";
 aws ecs describe-task-definition --task-def $TASK_DEFINITION > def
 
 # Extract the image from its tag
-if ! [[ $IMAGE =~ ^[^:]+:[^:]+$ ]]; then echo "You must specify an image with a tag" && exit 1; fi
-im=`echo $IMAGE | cut -d':' -f 1`
-tag=`echo $IMAGE | cut -d':' -f 2`
+if [[ $IMAGE =~ ^[^:]+:[^:/]+$ ]]; then
+  im=`echo $IMAGE | cut -d':' -f 1`
+  tag=`echo $IMAGE | cut -d':' -f 2`
+elif [[ $IMAGE =~ ^[^:]+:[^:]+:[^:]+$ ]]; then
+  im=`echo $IMAGE | cut -d':' -f 1,2`
+  tag=`echo $IMAGE | cut -d':' -f 3`
+else
+  echo "You must specify an image with a tag" && exit 1;
+fi
 
 # Extract out the repository from the image, if applicable
-if ! [[ $im =~ ^[^/]+/[^/]+$|^[^/]+$ ]]; then echo "Your image/repository specification string is invalid" && exit 1; fi
-repo=`echo $im | cut -d '/' -f 1`
-imend=`echo $im | cut -d '/' -f 2`
+if [[ $im =~ ^[^/]+/[^/]+$|^[^/]+$ ]]; then
+  repo=`echo $im | cut -d '/' -f 1`
+  imend=`echo $im | cut -d '/' -f 2`
+elif [[ $im =~ ^[^/]+/[^/]+/[^/]+$ ]]; then
+  repo=`echo $im | cut -d '/' -f 2`
+  imend=`echo $im | cut -d '/' -f 3`
+else
+  echo "Your image/repository specification string is invalid" && exit 1;
+fi
 
 # Replace the image tag in the old def
 if [[ $repo == $imend ]]; then
