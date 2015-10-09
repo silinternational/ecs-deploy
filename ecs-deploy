@@ -17,9 +17,17 @@ function usage() {
 
     Optional arguments:
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
+        -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        -v | --verbose          Verbose output
 
-    Example:
-        ecs-deploy -k ABC123 -s SECRETKEY -c production1 -n doorman-service -i docker.repo.com/doorman:latest
+    Examples:
+      Simple (Using env vars for AWS settings):
+
+        ecs-deploy -c production1 -n doorman-service -i docker.repo.com/doorman:latest
+
+      All options:
+
+        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
 EOM
 
@@ -34,8 +42,9 @@ SERVICE=false
 IMAGE=false
 TIMEOUT=90
 VERBOSE=false
+TAGVAR=false
 
-# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY can be set as environment variables 
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY can be set as environment variables
 if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then AWS_ACCESS_KEY_ID=false; fi
 if [ -z ${AWS_SECRET_ACCESS_KEY+x} ]; then AWS_SECRET_ACCESS_KEY=false; fi
 
@@ -69,6 +78,10 @@ do
             TIMEOUT="$2"
             shift
             ;;
+        -e|--tag-env-var)
+            TAGVAR="$2"
+            shift
+            ;;
         -v|--verbose)
             VERBOSE=true
             ;;
@@ -85,23 +98,23 @@ if [ $VERBOSE == true ]; then
 fi
 
 # Make sure we have all the variables needed: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, CLUSTER, SERVICE, IMAGE
-if [ $AWS_ACCESS_KEY_ID == false ]; then 
+if [ $AWS_ACCESS_KEY_ID == false ]; then
     echo "AWS_ACCESS_KEY_ID is required. You can set it as an environment variable or pass the value using -k or --aws-access-key"
     exit 1
 fi
-if [ $AWS_SECRET_ACCESS_KEY == false ]; then 
+if [ $AWS_SECRET_ACCESS_KEY == false ]; then
     echo "AWS_SECRET_ACCESS_KEY is required. You can set it as an environment variable or pass the value using -s or --aws-secret-key"
     exit 1
 fi
-if [ $CLUSTER == false ]; then 
+if [ $CLUSTER == false ]; then
     echo "CLUSTER is required. You can pass the value using -c or --cluster"
     exit 1
 fi
-if [ $SERVICE == false ]; then 
+if [ $SERVICE == false ]; then
     echo "SERVICE is required. You can pass the value using -n or --service-name"
     exit 1
 fi
-if [ $IMAGE == false ]; then 
+if [ $IMAGE == false ]; then
     echo "IMAGE is required. You can pass the value using -i or --image"
     exit 1
 fi
@@ -115,13 +128,32 @@ aws ecs describe-task-definition --task-def $TASK_DEFINITION > def
 
 # Extract the image from its tag
 if [[ $IMAGE =~ ^[^:]+:[^:/]+$ ]]; then
+  # Image with format registry/repo:tag
   im=`echo $IMAGE | cut -d':' -f 1`
   tag=`echo $IMAGE | cut -d':' -f 2`
+elif [[ $IMAGE =~ ^[^:]+[^:/]+$ ]]; then
+  # Image with format registry/repo (no tag specified)
+  im=`echo $IMAGE | cut -d':' -f 1`
+  tag=false
 elif [[ $IMAGE =~ ^[^:]+:[^:]+:[^:]+$ ]]; then
+  # Image with format registry:port/repo:tag
   im=`echo $IMAGE | cut -d':' -f 1,2`
   tag=`echo $IMAGE | cut -d':' -f 3`
+elif [[ $IMAGE =~ ^[^:/]+:[^:]+/[^:]+$ ]]; then
+  # Image with format registry:port/repo (no tag specified)
+  im=`echo $IMAGE | cut -d':' -f 1,2`
+  tag=false
 else
-  echo "You must specify an image with a tag" && exit 1;
+  echo "Unable to parse image name: $IMAGE, check the format and try again" && exit 1
+fi
+
+# Tag was not found in image name
+if [[ $tag == false ]]; then
+  # Get tag name value from ENV var
+  eval tag=\$$TAGVAR
+  if [[ "x$tag" == "x" ]]; then
+    echo "The ENV var named $TAGNAME is empty or not set" && exit 1;
+  fi
 fi
 
 # Extract out the registry (and possibly repository) from the image, if applicable
@@ -163,25 +195,25 @@ UPDATE=`aws ecs update-service --cluster $CLUSTER --service $SERVICE --task-defi
 # See if the service is able to come up again
 every=10
 i=0
-while [ $i -lt $TIMEOUT ] 
+while [ $i -lt $TIMEOUT ]
 do
   # Scan the list of running tasks for that service, and see if one of them is the
   # new version of the task definition
   rm -f tasks
-  
+
   aws ecs list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
     | jq '.taskArns[]' \
     | xargs -I{} aws ecs describe-tasks --cluster $CLUSTER --tasks {} >> tasks
-  
+
   jq < tasks > results ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus"
-  
+
   RUNNING=`grep -e "RUNNING" results`
 
   if [ $RUNNING ]; then
     echo "Service updated successfully, new task definition running.";
     exit 0
   fi
-  
+
   sleep $every
   i=$(( $i + $every ))
 done
@@ -189,4 +221,3 @@ done
 # Timeout
 echo "ERROR: New task definition not running within $TIMEOUT seconds"
 exit 1
-
