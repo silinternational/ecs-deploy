@@ -124,22 +124,30 @@ else
   echo "You must specify an image with a tag" && exit 1;
 fi
 
-# Extract out the repository from the image, if applicable
-if [[ $im =~ ^[^/]+/[^/]+$|^[^/]+$ ]]; then
-  repo=`echo $im | cut -d '/' -f 1`
+# Extract out the registry (and possibly repository) from the image, if applicable
+if [[ $im =~ ^[^/]+$ ]]; then
+  imend=$im
+elif [[ $im =~ ^[^/]+/[^/]+$ ]]; then
+  regi=`echo $im | cut -d '/' -f 1`
   imend=`echo $im | cut -d '/' -f 2`
 elif [[ $im =~ ^[^/]+/[^/]+/[^/]+$ ]]; then
+  regi=`echo $im | cut -d '/' -f 1`
   repo=`echo $im | cut -d '/' -f 2`
   imend=`echo $im | cut -d '/' -f 3`
 else
-  echo "Your image/repository specification string is invalid" && exit 1;
+  echo "Your image/registry specification string is invalid" && exit 1;
 fi
 
 # Replace the image tag in the old def
-if [[ $repo == $imend ]]; then
-  sed -i def -e "s/\(\"image\": \"$repo\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+if [[ $regi && $repo && $imend ]]; then
+  sed -i def -e "s/\(\"image\": \"$regi\/$repo\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+elif [[ $regi && $imend ]]; then
+  sed -i def -e "s/\(\"image\": \"$regi\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+elif [[ $imend ]]; then
+  sed -i def -e "s/\(\"image\": \"$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
 else
-  sed -i def -e "s/\(\"image\": \"$repo\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+  echo "This shouldn't happen"
+  exit 1
 fi
 
 # Filter the def
