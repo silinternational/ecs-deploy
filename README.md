@@ -15,6 +15,7 @@ Usage
         -i | --image            Name of Docker image to run, ex: mariadb:latest
 
     Optional arguments:
+        -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
         -v | --verbose          Verbose output
 

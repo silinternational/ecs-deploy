@@ -131,10 +131,9 @@ if [[ $IMAGE =~ ^[^:]+:[^:/]+$ ]]; then
   # Image with format registry/repo:tag
   im=`echo $IMAGE | cut -d':' -f 1`
   tag=`echo $IMAGE | cut -d':' -f 2`
-elif [[ $IMAGE =~ ^[^:]+[^:/]+$ ]]; then
+elif [[ $IMAGE =~ ^[^:]+/[^:]+$ ]]; then
   # Image with format registry/repo (no tag specified)
   im=`echo $IMAGE | cut -d':' -f 1`
-  tag=false
 elif [[ $IMAGE =~ ^[^:]+:[^:]+:[^:]+$ ]]; then
   # Image with format registry:port/repo:tag
   im=`echo $IMAGE | cut -d':' -f 1,2`
@@ -142,15 +141,14 @@ elif [[ $IMAGE =~ ^[^:]+:[^:]+:[^:]+$ ]]; then
 elif [[ $IMAGE =~ ^[^:/]+:[^:]+/[^:]+$ ]]; then
   # Image with format registry:port/repo (no tag specified)
   im=`echo $IMAGE | cut -d':' -f 1,2`
-  tag=false
 else
   echo "Unable to parse image name: $IMAGE, check the format and try again" && exit 1
 fi
 
 # Tag was not found in image name
-if [[ $tag == false ]]; then
+if [[ -n $tag ]]; then
   # Get tag name value from ENV var
-  eval tag=\$$TAGVAR
+  tag=${!TAGVAR}
   if [[ "x$tag" == "x" ]]; then
     echo "The ENV var named $TAGNAME is empty or not set" && exit 1;
   fi
