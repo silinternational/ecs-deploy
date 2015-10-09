@@ -72,7 +72,7 @@ be an unlikely use case._
 This behavior allows two possible process to specify which images, and therefore which configurations, to deploy. First, you
 may set the tag to always be `latest` (or some other static value), like so:
 
-    ecs-deploy XXXXX XXXXX us-east-1 default my_task_def my_app my.private.repo.com/frontend_container:lastest
+    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:lastest
 
 This will result in identical new versions of the Task Definition being created, but the Service will still do a blue/green
 deployment, and will so will pull down the latest version (if you previously pushed it into the registry).
@@ -80,11 +80,11 @@ deployment, and will so will pull down the latest version (if you previously pus
 Alternatively, you may specify some other means of obtaining the tag, since the script `eval`s the image string. You could use
 git tags as a map to docker tags:
 
-    ecs-deploy XXXXX XXXXX us-east-1 default my_task_def my_app 'my.private.repo.com/frontend_container:`git describe`'
+    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i 'my.private.repo.com/frontend_container:`git describe`'
 
 Or perhaps just obtain read the docker tag from another file in your development:
 
-    ecs-deploy XXXXX XXXXX us-east-1 default my_task_def my_app 'my.private.repo.com/frontend_container:$(< VERSION)'
+    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i 'my.private.repo.com/frontend_container:$(< VERSION)'
 
 In any case, just make sure your process builds, tags, and pushes the docker image you use to the repository before running
 this script.
