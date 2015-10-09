@@ -131,22 +131,22 @@ if [[ $IMAGE =~ ^[^:]+:[^:/]+$ ]]; then
   # Image with format registry/repo:tag
   im=`echo $IMAGE | cut -d':' -f 1`
   tag=`echo $IMAGE | cut -d':' -f 2`
-elif [[ $IMAGE =~ ^[^:]+/[^:]+$ ]]; then
-  # Image with format registry/repo (no tag specified)
-  im=`echo $IMAGE | cut -d':' -f 1`
 elif [[ $IMAGE =~ ^[^:]+:[^:]+:[^:]+$ ]]; then
   # Image with format registry:port/repo:tag
   im=`echo $IMAGE | cut -d':' -f 1,2`
   tag=`echo $IMAGE | cut -d':' -f 3`
+elif [[ $IMAGE =~ ^[^:]+/[^:]+$ ]]; then
+  # Image with format registry/repo (no tag specified)
+  im=`echo $IMAGE | cut -d':' -f 1`
 elif [[ $IMAGE =~ ^[^:/]+:[^:]+/[^:]+$ ]]; then
   # Image with format registry:port/repo (no tag specified)
   im=`echo $IMAGE | cut -d':' -f 1,2`
-else
-  echo "Unable to parse image name: $IMAGE, check the format and try again" && exit 1
+elif [[ $TAGVAR == false ]]; then
+  echo "You must provide an image name with tag, or pass the -e argument with the name of an env var to get the tag value from" && exit 1
 fi
 
 # Tag was not found in image name
-if [[ -n $tag ]]; then
+if [[ "x$tag" == "x" ]]; then
   # Get tag name value from ENV var
   tag=${!TAGVAR}
   if [[ "x$tag" == "x" ]]; then
@@ -170,15 +170,17 @@ fi
 
 # Replace the image tag in the old def
 if [[ $regi && $repo && $imend ]]; then
-  sed -i def -e "s/\(\"image\": \"$regi\/$repo\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+  sed -i def -e "s/\(\"image\": \"$regi\/$repo\/$imend\):\([^ ]\+\)*\"/\1:$tag\"/"
 elif [[ $regi && $imend ]]; then
-  sed -i def -e "s/\(\"image\": \"$regi\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+  sed -i def -e "s/\(\"image\": \"$regi\/$imend\):\([^ ]\+\)*\"/\1:$tag\"/"
 elif [[ $imend ]]; then
-  sed -i def -e "s/\(\"image\": \"$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
+  sed -i def -e "s/\(\"image\": \"$imend\):\([^ ]\+\)*\"/\1:$tag\"/"
 else
   echo "This shouldn't happen"
   exit 1
 fi
+
+exit 1;
 
 # Filter the def
 jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
