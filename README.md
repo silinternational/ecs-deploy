@@ -15,10 +15,17 @@ Usage
         -i | --image            Name of Docker image to run, ex: mariadb:latest
 
     Optional arguments:
-        -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
+        -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        -v | --verbose          Verbose output
 
-    Example:
-        ecs-deploy -k ABC123 -s SECRETKEY -c production1 -n doorman-service -i docker.repo.com/doorman:latest
+    Examples:
+      Simple (Using env vars for AWS settings):
+
+        ecs-deploy -c production1 -n doorman-service -i docker.repo.com/doorman:latest
+
+      All options:
+
+        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
 How it works
 ------------
@@ -88,3 +95,20 @@ Or perhaps just obtain read the docker tag from another file in your development
 
 In any case, just make sure your process builds, tags, and pushes the docker image you use to the repository before running
 this script.
+
+Use Environment Variable for tag name value
+-------------------------------------------
+In some cases you may want to use an environment variable for the tag name of your image.
+For instance, we use Codeship for continous integration and deployment. In their Docker
+environment they can build images and tag them with different variables, such as
+the current unix timestamp. We want to use these unique and changing values for image tags
+so that each task definition refers to a unique docker image/tag. This gives us the
+ability to revert/rollback changes by just selecting a previous task definition and
+updating the service. We plan to add a revert command/option to ecs-deploy to simplify this further.
+
+Using the ```-e``` argument you can provide the name of an environment variable that
+holds the value you wish to use for the tag. On Codeship they set an env var named CI_TIMESTAMP.
+
+So we use ```ecs-deploy``` like this:
+
+    ecs-deploy -c production1 -n doorman-api -i my.private.repo/doorman-api -e CI_TIMESTAMP
