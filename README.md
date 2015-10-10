@@ -12,7 +12,10 @@ Usage
         -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -c | --cluster          Name of ECS cluster
         -n | --service-name     Name of service to deploy
-        -i | --image            Name of Docker image to run, ex: mariadb:latest
+        -i | --image            Name of Docker image to run, ex: repo/image:latest
+                                Format: [domain][:port][/repo][/][image][:tag]
+                                Examples: mariadb, mariadb:latest, silintl/mariadb,
+                                          silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
@@ -27,6 +30,9 @@ Usage
       All options:
 
         ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+
+    Notes:
+      - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
 
 How it works
 ------------
