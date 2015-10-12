@@ -13,7 +13,10 @@ function usage() {
         -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -c | --cluster          Name of ECS cluster
         -n | --service-name     Name of service to deploy
-        -i | --image            Name of Docker image to run, ex: mariadb:latest
+        -i | --image            Name of Docker image to run, ex: repo/image:latest
+                                Format: [domain][:port][/repo][/][image][:tag]
+                                Examples: mariadb, mariadb:latest, silintl/mariadb,
+                                          silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
@@ -29,6 +32,8 @@ function usage() {
 
         ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
+    Notes:
+      - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
 EOM
 
     exit 2
@@ -119,6 +124,88 @@ if [ $IMAGE == false ]; then
     exit 1
 fi
 
+# Define regex for image name
+# This regex will create groups for:
+# - domain
+# - port
+# - repo
+# - image
+# - tag
+# If a group is missing it will be an empty string
+imageRegex="^([a-zA-Z0-9.\-]+):?([0-9]+)?/([a-zA-Z0-9\-]+)/?([a-zA-Z0-9\-]+)?:?([a-zA-Z0-9\-\.]+)?$"
+
+if [[ $IMAGE =~ $imageRegex ]]; then
+  # Define variables from matching groups
+  domain=${BASH_REMATCH[1]}
+  port=${BASH_REMATCH[2]}
+  repo=${BASH_REMATCH[3]}
+  img=${BASH_REMATCH[4]}
+  tag=${BASH_REMATCH[5]}
+
+  # Validate what we received to make sure we have the pieces needed
+  if [[ "x$domain" == "x" ]]; then
+    echo "Image name does not contain a domain or repo as expected. See usage for supported formats." && exit 1;
+  fi
+  if [[ "x$repo" == "x" ]]; then
+    echo "Image name is missing the actual image name. See usage for supported formats." && exit 1;
+  fi
+
+  # When a match for image is not found, the image name was picked up by the repo group, so reset variables
+  if [[ "x$img" == "x" ]]; then
+    img=$repo
+    repo=""
+  fi
+
+else
+  # check if using root level repo with format like mariadb or mariadb:latest
+  rootRepoRegex="^([a-zA-Z0-9\-]+):?([a-zA-Z0-9\.\-]+)?$"
+  if [[ $IMAGE =~ $rootRepoRegex ]]; then
+    img=${BASH_REMATCH[1]}
+    if [[ "x$img" == "x" ]]; then
+      echo "Invalid image name. See usage for supported formats." && exit 1
+    fi
+    tag=${BASH_REMATCH[2]}
+  else
+    echo "Unable to parse image name: $IMAGE, check the format and try again" && exit 1
+  fi
+fi
+
+# If tag is missing make sure we can get it from env var, or use latest as default
+if [[ "x$tag" == "x" ]]; then
+  if [[ $TAGVAR == false ]]; then
+    tag="latest"
+  else
+    tag=${!TAGVAR}
+    if [[ "x$tag" == "x" ]]; then
+      tag="latest"
+    fi
+  fi
+fi
+
+# Reassemble image name
+useImage=""
+if [[ "x$domain" != "x" ]]; then
+  useImage="$domain"
+fi
+if [[ "x$port" != "x" ]]; then
+  useImage="$useImage:$port"
+fi
+if [[ "x$repo" != "x" ]]; then
+  useImage="$useImage/$repo"
+fi
+if [[ "x$img" != "x" ]]; then
+  if [[ "x$useImage" == "x" ]]; then
+    useImage="$img"
+  else
+    useImage="$useImage/$img"
+  fi
+fi
+if [[ "x$tag" != "x" ]]; then
+  useImage="$useImage:$tag"
+fi
+
+echo "Using image name: $useImage"
+
 # Get current task definition name from service
 TASK_DEFINITION=`aws ecs describe-services --services $SERVICE --cluster $CLUSTER | jq .services[0].taskDefinition | tr -d '"'`
 echo "Current task definition: $TASK_DEFINITION";
@@ -126,59 +213,8 @@ echo "Current task definition: $TASK_DEFINITION";
 # Get a JSON representation of the current task definition
 aws ecs describe-task-definition --task-def $TASK_DEFINITION > def
 
-# Extract the image from its tag
-if [[ $IMAGE =~ ^[^:]+:[^:/]+$ ]]; then
-  # Image with format registry/repo:tag
-  im=`echo $IMAGE | cut -d':' -f 1`
-  tag=`echo $IMAGE | cut -d':' -f 2`
-elif [[ $IMAGE =~ ^[^:]+/[^:]+$ ]]; then
-  # Image with format registry/repo (no tag specified)
-  im=`echo $IMAGE | cut -d':' -f 1`
-elif [[ $IMAGE =~ ^[^:]+:[^:]+:[^:]+$ ]]; then
-  # Image with format registry:port/repo:tag
-  im=`echo $IMAGE | cut -d':' -f 1,2`
-  tag=`echo $IMAGE | cut -d':' -f 3`
-elif [[ $IMAGE =~ ^[^:/]+:[^:]+/[^:]+$ ]]; then
-  # Image with format registry:port/repo (no tag specified)
-  im=`echo $IMAGE | cut -d':' -f 1,2`
-else
-  echo "Unable to parse image name: $IMAGE, check the format and try again" && exit 1
-fi
-
-# Tag was not found in image name
-if [[ -n $tag ]]; then
-  # Get tag name value from ENV var
-  tag=${!TAGVAR}
-  if [[ "x$tag" == "x" ]]; then
-    echo "The ENV var named $TAGNAME is empty or not set" && exit 1;
-  fi
-fi
-
-# Extract out the registry (and possibly repository) from the image, if applicable
-if [[ $im =~ ^[^/]+$ ]]; then
-  imend=$im
-elif [[ $im =~ ^[^/]+/[^/]+$ ]]; then
-  regi=`echo $im | cut -d '/' -f 1`
-  imend=`echo $im | cut -d '/' -f 2`
-elif [[ $im =~ ^[^/]+/[^/]+/[^/]+$ ]]; then
-  regi=`echo $im | cut -d '/' -f 1`
-  repo=`echo $im | cut -d '/' -f 2`
-  imend=`echo $im | cut -d '/' -f 3`
-else
-  echo "Your image/registry specification string is invalid" && exit 1;
-fi
-
-# Replace the image tag in the old def
-if [[ $regi && $repo && $imend ]]; then
-  sed -i def -e "s/\(\"image\": \"$regi\/$repo\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
-elif [[ $regi && $imend ]]; then
-  sed -i def -e "s/\(\"image\": \"$regi\/$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
-elif [[ $imend ]]; then
-  sed -i def -e "s/\(\"image\": \"$imend\)\(:[^ ]\+\)*\"/\1:$tag\"/"
-else
-  echo "This shouldn't happen"
-  exit 1
-fi
+# Update definition to use new image name
+sed -i def -e "s|\"image\": \".*\"|\"image\": \"${useImage}\"|"
 
 # Filter the def
 jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
