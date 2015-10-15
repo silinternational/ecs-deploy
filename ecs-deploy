@@ -243,7 +243,7 @@ do
 
   RUNNING=`grep -e "RUNNING" results`
 
-  if [ $RUNNING ]; then
+  if [ "$RUNNING" ]; then
     echo "Service updated successfully, new task definition running.";
     exit 0
   fi
