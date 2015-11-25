@@ -200,6 +200,7 @@ if [[ "x$img" != "x" ]]; then
     useImage="$useImage/$img"
   fi
 fi
+imageWithoutTag="$useImage"
 if [[ "x$tag" != "x" ]]; then
   useImage="$useImage:$tag"
 fi
@@ -214,7 +215,7 @@ echo "Current task definition: $TASK_DEFINITION";
 aws ecs describe-task-definition --task-def $TASK_DEFINITION > def
 
 # Update definition to use new image name
-sed -i def -e "s|\"image\": \".*\"|\"image\": \"${useImage}\"|"
+sed -i def -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|"
 
 # Filter the def
 jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
