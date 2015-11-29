@@ -10,7 +10,6 @@ function usage() {
     Required arguments:
         -k | --aws-access-key   AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
         -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
-        -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -c | --cluster          Name of ECS cluster
         -n | --service-name     Name of service to deploy
         -i | --image            Name of Docker image to run, ex: repo/image:latest
@@ -30,7 +29,7 @@ function usage() {
 
       All options:
 
-        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -k ABC123 -s SECRETKEY -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
     Notes:
       - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
