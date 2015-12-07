@@ -11,7 +11,8 @@ function usage() {
         -k | --aws-access-key   AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
         -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
         -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
-        -c | --cluster          Name of ECS cluster
+        -p | --profile          AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
+	-c | --cluster          Name of ECS cluster
         -n | --service-name     Name of service to deploy
         -i | --image            Name of Docker image to run, ex: repo/image:latest
                                 Format: [domain][:port][/repo][/][image][:tag]
@@ -32,6 +33,10 @@ function usage() {
 
         ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
+	Using profiles (for STS delegated credentials, for instance):
+
+        ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+
     Notes:
       - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
 EOM
@@ -48,10 +53,8 @@ IMAGE=false
 TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
-
-# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY can be set as environment variables
-if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then AWS_ACCESS_KEY_ID=false; fi
-if [ -z ${AWS_SECRET_ACCESS_KEY+x} ]; then AWS_SECRET_ACCESS_KEY=false; fi
+AWS_CLI=$(which aws)
+AWS_ECS="$AWS_CLI ecs"
 
 # Loop through arguments, two at a time for key and value
 while [[ $# > 0 ]]
@@ -67,6 +70,14 @@ do
             AWS_SECRET_ACCESS_KEY="$2"
             shift # past argument
             ;;
+	-r|--region)
+	    AWS_DEFAULT_REGION="$2"
+	    shift # past argument
+	    ;;
+	-p|--profile)
+	    AWS_PROFILE="$2"
+	    shift # past argument
+	    ;;
         -c|--cluster)
             CLUSTER="$2"
             shift # past argument
@@ -98,17 +109,35 @@ do
     shift # past argument or value
 done
 
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION and AWS_PROFILE can be set as environment variables
+if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then unset AWS_ACCESS_KEY_ID; fi
+if [ -z ${AWS_SECRET_ACCESS_KEY+x} ]; then unset AWS_SECRET_ACCESS_KEY; fi
+if [ -z ${AWS_DEFAULT_REGION+x} ];
+  then unset AWS_DEFAULT_REGION
+  else
+          AWS_ECS="$AWS_ECS --region $AWS_DEFAULT_REGION"
+fi
+if [ -z ${AWS_PROFILE+x} ];
+  then unset AWS_PROFILE
+  else
+          AWS_ECS="$AWS_ECS --profile $AWS_PROFILE"
+fi
+
 if [ $VERBOSE == true ]; then
     set -x
 fi
 
 # Make sure we have all the variables needed: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, CLUSTER, SERVICE, IMAGE
-if [ $AWS_ACCESS_KEY_ID == false ]; then
+if [ -z $AWS_ACCESS_KEY_ID ] && [ -z $AWS_PROFILE ]; then
     echo "AWS_ACCESS_KEY_ID is required. You can set it as an environment variable or pass the value using -k or --aws-access-key"
     exit 1
 fi
-if [ $AWS_SECRET_ACCESS_KEY == false ]; then
+if [ -z $AWS_SECRET_ACCESS_KEY ] && [ -z $AWS_PROFILE ]; then
     echo "AWS_SECRET_ACCESS_KEY is required. You can set it as an environment variable or pass the value using -s or --aws-secret-key"
+    exit 1
+fi
+if [ -z $AWS_DEFAULT_REGION ] && [ -z $AWS_PROFILE ]; then
+    echo "AWS_DEFAULT_REGION is required. You can set it as an environment variable or pass the value using -r or --region"
     exit 1
 fi
 if [ $CLUSTER == false ]; then
@@ -207,11 +236,11 @@ fi
 echo "Using image name: $useImage"
 
 # Get current task definition name from service
-TASK_DEFINITION=`aws ecs describe-services --services $SERVICE --cluster $CLUSTER | jq .services[0].taskDefinition | tr -d '"'`
+TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq .services[0].taskDefinition | tr -d '"'`
 echo "Current task definition: $TASK_DEFINITION";
 
 # Get a JSON representation of the current task definition
-aws ecs describe-task-definition --task-def $TASK_DEFINITION > def
+$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION > def
 
 # Update definition to use new image name
 sed -i def -e "s|\"image\": \".*\"|\"image\": \"${useImage}\"|"
@@ -220,11 +249,11 @@ sed -i def -e "s|\"image\": \".*\"|\"image\": \"${useImage}\"|"
 jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`aws ecs register-task-definition --cli-input-json file://newdef | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json file://newdef | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
 echo "New task definition: $NEW_TASKDEF";
 
 # Update the service
-UPDATE=`aws ecs update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF`
+UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF`
 
 # See if the service is able to come up again
 every=10
@@ -235,9 +264,9 @@ do
   # new version of the task definition
   rm -f tasks
 
-  aws ecs list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
+  $AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
     | jq '.taskArns[]' \
-    | xargs -I{} aws ecs describe-tasks --cluster $CLUSTER --tasks {} >> tasks
+    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} >> tasks
 
   jq < tasks > results ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus"
 
