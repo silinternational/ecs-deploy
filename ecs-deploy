@@ -12,7 +12,7 @@ function usage() {
         -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
         -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -p | --profile          AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
-	-c | --cluster          Name of ECS cluster
+        -c | --cluster          Name of ECS cluster
         -n | --service-name     Name of service to deploy
         -i | --image            Name of Docker image to run, ex: repo/image:latest
                                 Format: [domain][:port][/repo][/][image][:tag]
@@ -33,7 +33,7 @@ function usage() {
 
         ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
-	Using profiles (for STS delegated credentials, for instance):
+      Using profiles (for STS delegated credentials, for instance):
 
         ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
@@ -42,6 +42,21 @@ function usage() {
 EOM
 
     exit 2
+}
+
+function cleanup() {
+    if [ -f ${DEFFILE} ]; then
+        rm ${DEFFILE}
+    fi
+    if [ -f ${NEWDEFFILE} ]; then
+        rm ${NEWDEFFILE}
+    fi
+    if [ -f ${TAKSFILE} ]; then
+        rm ${TAKSFILE}
+    fi
+    if [ -f ${RESULTFILE} ]; then
+        rm ${RESULTFILE}
+    fi
 }
 
 if [ $# == 0 ]; then usage; fi
@@ -55,6 +70,11 @@ VERBOSE=false
 TAGVAR=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
+# tmp files
+DEFFILE=`mktemp -u --suffix='.esc-deploy'`
+NEWDEFFILE=`mktemp -u --suffix='.esc-deploy'`
+TAKSFILE=`mktemp -u --suffix='.esc-deploy'`
+RESULTFILE=`mktemp -u --suffix='.esc-deploy'`
 
 # Loop through arguments, two at a time for key and value
 while [[ $# > 0 ]]
@@ -70,14 +90,14 @@ do
             AWS_SECRET_ACCESS_KEY="$2"
             shift # past argument
             ;;
-	-r|--region)
-	    AWS_DEFAULT_REGION="$2"
-	    shift # past argument
-	    ;;
-	-p|--profile)
-	    AWS_PROFILE="$2"
-	    shift # past argument
-	    ;;
+        -r|--region)
+            AWS_DEFAULT_REGION="$2"
+            shift # past argument
+            ;;
+        -p|--profile)
+            AWS_PROFILE="$2"
+            shift # past argument
+            ;;
         -c|--cluster)
             CLUSTER="$2"
             shift # past argument
@@ -241,16 +261,16 @@ TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUST
 echo "Current task definition: $TASK_DEFINITION";
 
 # Get a JSON representation of the current task definition
-$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION > def
+$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION > ${DEFFILE}
 
 # Update definition to use new image name
-sed -i def -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|"
+sed -i ${DEFFILE} -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|"
 
 # Filter the def
-jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
+jq < ${DEFFILE} > ${NEWDEFFILE} '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json file://newdef | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json file://${NEWDEFFILE} | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
 echo "New task definition: $NEW_TASKDEF";
 
 # Update the service
@@ -263,18 +283,19 @@ while [ $i -lt $TIMEOUT ]
 do
   # Scan the list of running tasks for that service, and see if one of them is the
   # new version of the task definition
-  rm -f tasks
+  rm -f ${TAKSFILE}
 
   $AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
     | jq '.taskArns[]' \
-    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} >> tasks
+    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} >> ${TAKSFILE}
 
-  jq < tasks > results ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus"
+  jq < ${TAKSFILE} > ${RESULTFILE} ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus"
 
-  RUNNING=`grep -e "RUNNING" results`
+  RUNNING=`grep -e "RUNNING" ${RESULTFILE}`
 
   if [ "$RUNNING" ]; then
     echo "Service updated successfully, new task definition running.";
+    cleanup
     exit 0
   fi
 
@@ -284,4 +305,5 @@ done
 
 # Timeout
 echo "ERROR: New task definition not running within $TIMEOUT seconds"
+cleanup
 exit 1
