@@ -54,7 +54,7 @@ TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
 AWS_CLI=$(which aws)
-AWS_ECS="$AWS_CLI ecs"
+AWS_ECS="$AWS_CLI --output json ecs"
 
 # Loop through arguments, two at a time for key and value
 while [[ $# > 0 ]]
