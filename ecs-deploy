@@ -244,7 +244,7 @@ echo "Current task definition: $TASK_DEFINITION";
 $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION > def
 
 # Update definition to use new image name
-sed -i def -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|"
+sed -i'' -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|" def
 
 # Filter the def
 jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
