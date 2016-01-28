@@ -12,7 +12,7 @@ function usage() {
         -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
         -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -p | --profile          AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
-	-c | --cluster          Name of ECS cluster
+        -c | --cluster          Name of ECS cluster
         -n | --service-name     Name of service to deploy
         -i | --image            Name of Docker image to run, ex: repo/image:latest
                                 Format: [domain][:port][/repo][/][image][:tag]
