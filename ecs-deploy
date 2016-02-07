@@ -20,6 +20,8 @@ function usage() {
                                           silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
+        -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
+        -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
         -v | --verbose          Verbose output
@@ -50,6 +52,8 @@ if [ $# == 0 ]; then usage; fi
 CLUSTER=false
 SERVICE=false
 IMAGE=false
+MIN=100
+MAX=200
 TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
@@ -92,6 +96,14 @@ do
             ;;
         -t|--timeout)
             TIMEOUT="$2"
+            shift
+            ;;
+        -m|--min)
+            MIN="$2"
+            shift
+            ;;
+        -M|--max)
+            MAX="$2"
             shift
             ;;
         -e|--tag-env-var)
@@ -254,7 +266,7 @@ NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json file://newdef | 
 echo "New task definition: $NEW_TASKDEF";
 
 # Update the service
-UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF`
+UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF --deployment-configuration maximumPercent=$MAX,minimumHealthyPercent=$MIN`
 
 # See if the service is able to come up again
 every=10
