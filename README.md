@@ -32,11 +32,11 @@ Usage
 
       All options:
 
-        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -e CI_TIMESTAMP -v
 
         Using profiles (for STS delegated credentials, for instance):
 
-        ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -e CI_TIMESTAMP -v
 
     Notes:
       - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
