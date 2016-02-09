@@ -237,7 +237,7 @@ fi
 echo "Using image name: $useImage"
 
 # Get current task definition name from service
-TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq .services[0].taskDefinition | tr -d '"'`
+TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq .services[0].taskDefinition -r`
 echo "Current task definition: $TASK_DEFINITION";
 
 # Get a JSON representation of the current task definition
@@ -250,7 +250,7 @@ sed -i'' -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|" 
 jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json file://newdef | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json file://newdef | jq .taskDefinition.taskDefinitionArn -r`
 echo "New task definition: $NEW_TASKDEF";
 
 # Update the service
