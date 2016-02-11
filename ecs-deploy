@@ -12,7 +12,7 @@ function usage() {
         -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
         -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -p | --profile          AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
-	-c | --cluster          Name of ECS cluster
+        -c | --cluster          Name of ECS cluster
         -n | --service-name     Name of service to deploy
         -i | --image            Name of Docker image to run, ex: repo/image:latest
                                 Format: [domain][:port][/repo][/][image][:tag]
@@ -241,16 +241,14 @@ TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUST
 echo "Current task definition: $TASK_DEFINITION";
 
 # Get a JSON representation of the current task definition
-$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION > def
-
-# Update definition to use new image name
-sed -i'' -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|" def
-
-# Filter the def
-jq < def > newdef '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}'
+# + Update definition to use new image name
+# + Filter the def
+DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
+        | sed -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|" \
+        | jq '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}' )
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json file://newdef | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
 echo "New task definition: $NEW_TASKDEF";
 
 # Update the service
@@ -263,15 +261,12 @@ while [ $i -lt $TIMEOUT ]
 do
   # Scan the list of running tasks for that service, and see if one of them is the
   # new version of the task definition
-  rm -f tasks
 
-  $AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
+  RUNNING=$($AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
     | jq '.taskArns[]' \
-    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} >> tasks
-
-  jq < tasks > results ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus"
-
-  RUNNING=`grep -e "RUNNING" results`
+    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
+    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
+    | grep -e "RUNNING" )
 
   if [ "$RUNNING" ]; then
     echo "Service updated successfully, new task definition running.";
