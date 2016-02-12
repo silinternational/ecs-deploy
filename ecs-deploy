@@ -270,7 +270,7 @@ fi
 if [ $MIN != false ]; then
   DEPLOYMENT_CONFIG="$DEPLOYMENT_CONFIG,minimumHealthyPercent=$MIN"
 fi
-if [ $DEPLOYMENT_CONFIG != "" ]; then
+if [ ! -z "$DEPLOYMENT_CONFIG" ]; then
   DEPLOYMENT_CONFIG="--deployment-configuration ${DEPLOYMENT_CONFIG:1}"
 fi
 
