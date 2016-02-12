@@ -44,7 +44,7 @@ function usage() {
 
         ecs-deploy -d open-door-task -i docker.repo.com/doorman:17
 
-	  Using profiles (for STS delegated credentials, for instance):
+      Using profiles (for STS delegated credentials, for instance):
 
         ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
@@ -83,14 +83,14 @@ do
             AWS_SECRET_ACCESS_KEY="$2"
             shift # past argument
             ;;
-	-r|--region)
-	    AWS_DEFAULT_REGION="$2"
-	    shift # past argument
-	    ;;
-	-p|--profile)
-	    AWS_PROFILE="$2"
-	    shift # past argument
-	    ;;
+        -r|--region)
+            AWS_DEFAULT_REGION="$2"
+            shift # past argument
+            ;;
+        -p|--profile)
+            AWS_PROFILE="$2"
+            shift # past argument
+            ;;
         --aws-instance-profile)
             AWS_IAM_ROLE=true
             ;;
