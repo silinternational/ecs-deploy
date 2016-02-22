@@ -8,16 +8,13 @@ function usage() {
     Simple script for triggering blue/green deployments on Amazon Elastic Container Service
     https://github.com/silinternational/ecs-deploy
 
-    One of the following is required:
-        -n | --service-name     Name of service to deploy
-        -d | --task-definition  Name of task definition to deploy
-
     Required arguments:
         -k | --aws-access-key        AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
         -s | --aws-secret-key        AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
         -r | --region                AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -p | --profile               AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
         -c | --cluster               Name of ECS cluster
+        -n | --service-name          Name of service to deploy
         -i | --image                 Name of Docker image to run, ex: repo/image:latest
                                      Format: [domain][:port][/repo][/][image][:tag]
                                      Examples: mariadb, mariadb:latest, silintl/mariadb,
@@ -32,17 +29,13 @@ function usage() {
         -v | --verbose          Verbose output
 
     Examples:
-      Simple deployment of a service (Using env vars for AWS settings):
+      Simple (Using env vars for AWS settings):
 
         ecs-deploy -c production1 -n doorman-service -i docker.repo.com/doorman:latest
 
       All options:
 
         ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
-
-      Updating a task definition with a new image:
-
-        ecs-deploy -d open-door-task -i docker.repo.com/doorman:17
 
       Using profiles (for STS delegated credentials, for instance):
 
@@ -59,7 +52,6 @@ if [ $# == 0 ]; then usage; fi
 # Setup default values for variables
 CLUSTER=false
 SERVICE=false
-TASK_DEFINITION=false
 IMAGE=false
 MIN=false
 MAX=false
@@ -83,14 +75,14 @@ do
             AWS_SECRET_ACCESS_KEY="$2"
             shift # past argument
             ;;
-        -r|--region)
-            AWS_DEFAULT_REGION="$2"
-            shift # past argument
-            ;;
-        -p|--profile)
-            AWS_PROFILE="$2"
-            shift # past argument
-            ;;
+	-r|--region)
+	    AWS_DEFAULT_REGION="$2"
+	    shift # past argument
+	    ;;
+	-p|--profile)
+	    AWS_PROFILE="$2"
+	    shift # past argument
+	    ;;
         --aws-instance-profile)
             AWS_IAM_ROLE=true
             ;;
@@ -101,10 +93,6 @@ do
         -n|--service-name)
             SERVICE="$2"
             shift # past argument
-            ;;
-        -d|--task-definition)
-            TASK_DEFINITION="$2"
-            shift
             ;;
         -i|--image)
             IMAGE="$2"
@@ -168,16 +156,12 @@ if [ -z $AWS_IAM_ROLE ] && [ -z $AWS_DEFAULT_REGION ] && [ -z $AWS_PROFILE ]; th
     echo "AWS_DEFAULT_REGION is required. You can set it as an environment variable or pass the value using -r or --region"
     exit 1
 fi
-if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-    echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definiton for a task"
-    exit 1
-fi
-if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
-    echo "Only one of SERVICE or TASK DEFINITON may be specified, but you supplied both"
-    exit 1
-fi
-if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
+if [ $CLUSTER == false ]; then
     echo "CLUSTER is required. You can pass the value using -c or --cluster"
+    exit 1
+fi
+if [ $SERVICE == false ]; then
+    echo "SERVICE is required. You can pass the value using -n or --service-name"
     exit 1
 fi
 if [ $IMAGE == false ]; then
@@ -268,11 +252,8 @@ fi
 
 echo "Using image name: $useImage"
 
-if [ $SERVICE != false ]; then
-  # Get current task definition name from service
-  TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq .services[0].taskDefinition | tr -d '"'`
-fi
-
+# Get current task definition name from service
+TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
 echo "Current task definition: $TASK_DEFINITION";
 
 # Get a JSON representation of the current task definition
@@ -283,49 +264,46 @@ DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
         | jq '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}' )
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq -r .taskDefinition.taskDefinitionArn`
 echo "New task definition: $NEW_TASKDEF";
 
-if [ $SERVICE == false ]; then
-  echo "Task definition updated successfully"
-else
-  DEPLOYMENT_CONFIG=""
-  if [ $MAX != false ]; then
-    DEPLOYMENT_CONFIG=",maximumPercent=$MAX"
-  fi
-  if [ $MIN != false ]; then
-    DEPLOYMENT_CONFIG="$DEPLOYMENT_CONFIG,minimumHealthyPercent=$MIN"
-  fi
-  if [ ! -z "$DEPLOYMENT_CONFIG" ]; then
-    DEPLOYMENT_CONFIG="--deployment-configuration ${DEPLOYMENT_CONFIG:1}"
-  fi
-
-  # Update the service
-  UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
-
-  # See if the service is able to come up again
-  every=10
-  i=0
-  while [ $i -lt $TIMEOUT ]
-  do
-    # Scan the list of running tasks for that service, and see if one of them is the
-    # new version of the task definition
-
-    if $AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
-      | jq '.taskArns[]' \
-      | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
-      | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-      | grep -e "RUNNING"; then
-
-      echo "Service updated successfully, new task definition running.";
-      exit 0
-    fi
-
-    sleep $every
-    i=$(( $i + $every ))
-  done
-
-  # Timeout
-  echo "ERROR: New task definition not running within $TIMEOUT seconds"
-  exit 1
+DEPLOYMENT_CONFIG=""
+if [ $MAX != false ]; then
+  DEPLOYMENT_CONFIG=",maximumPercent=$MAX"
 fi
+if [ $MIN != false ]; then
+  DEPLOYMENT_CONFIG="$DEPLOYMENT_CONFIG,minimumHealthyPercent=$MIN"
+fi
+if [ ! -z "$DEPLOYMENT_CONFIG" ]; then
+  DEPLOYMENT_CONFIG="--deployment-configuration ${DEPLOYMENT_CONFIG:1}"
+fi
+
+# Update the service
+UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
+
+# See if the service is able to come up again
+every=10
+i=0
+while [ $i -lt $TIMEOUT ]
+do
+  # Scan the list of running tasks for that service, and see if one of them is the
+  # new version of the task definition
+
+  RUNNING=$($AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
+    | jq -r '.taskArns[]' \
+    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
+    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
+    | grep -e "RUNNING" || : )
+
+  if [ "$RUNNING" ]; then
+    echo "Service updated successfully, new task definition running.";
+    exit 0
+  fi
+
+  sleep $every
+  i=$(( $i + $every ))
+done
+
+# Timeout
+echo "ERROR: New task definition not running within $TIMEOUT seconds"
+exit 1
