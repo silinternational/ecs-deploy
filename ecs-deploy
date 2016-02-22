@@ -270,7 +270,7 @@ echo "Using image name: $useImage"
 
 if [ $SERVICE != false ]; then
   # Get current task definition name from service
-  TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq .services[0].taskDefinition | tr -d '"'`
+  TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
 fi
 
 echo "Current task definition: $TASK_DEFINITION";
@@ -283,7 +283,7 @@ DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
         | jq '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}' )
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq .taskDefinition.taskDefinitionArn | tr -d '"'`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq -r .taskDefinition.taskDefinitionArn`
 echo "New task definition: $NEW_TASKDEF";
 
 if [ $SERVICE == false ]; then
@@ -312,7 +312,7 @@ else
     # new version of the task definition
 
   RUNNING=$($AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
-    | jq '.taskArns[]' \
+    | jq -r '.taskArns[]' \
     | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
     | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
     | grep -e "RUNNING" || : )
