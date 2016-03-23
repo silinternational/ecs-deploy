@@ -22,7 +22,7 @@ function usage() {
                                      Format: [domain][:port][/repo][/][image][:tag]
                                      Examples: mariadb, mariadb:latest, silintl/mariadb,
                                                silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
-             --aws-instance-profile  Use the IAM role associated with this instance
+        --aws-instance-profile  Use the IAM role associated with this instance
 
     Optional arguments:
         -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
@@ -193,7 +193,7 @@ fi
 # - image
 # - tag
 # If a group is missing it will be an empty string
-imageRegex="^([a-zA-Z0-9.\-]+):?([0-9]+)?/([a-zA-Z0-9\-\_]+)/?([a-zA-Z0-9\-\_]+)?:?([a-zA-Z0-9\.\-\_]+)?$"
+imageRegex="^([a-zA-Z0-9.\-]+):?([0-9]+)?/([a-zA-Z0-9_-]+)/?([a-zA-Z0-9_-]+)?:?([a-zA-Z0-9\._-]+)?$"
 
 if [[ $IMAGE =~ $imageRegex ]]; then
   # Define variables from matching groups
