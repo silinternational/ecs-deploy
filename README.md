@@ -126,3 +126,31 @@ holds the value you wish to use for the tag. On Codeship they set an env var nam
 So we use ```ecs-deploy``` like this:
 
     ecs-deploy -c production1 -n doorman-api -i my.private.repo/doorman-api -e CI_TIMESTAMP
+
+AWS IAM Policy Configuration
+-------------------------------------------
+Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.com/documentation/iam/):
+
+```json
+{
+  "Version":"2012-10-17",
+  "Statement":[
+    {
+      "Sid":"Stmt1457037856137",
+      "Action":[
+        "ecs:DeregisterTaskDefinition",
+        "ecs:DescribeServices",
+        "ecs:DescribeTaskDefinition",
+        "ecs:DescribeTasks",
+        "ecs:ListTasks",
+        "ecs:RegisterTaskDefinition",
+        "ecs:StartTask",
+        "ecs:StopTask",
+        "ecs:UpdateService"
+      ],
+      "Effect":"Allow",
+      "Resource":"*"
+    }
+  ]
+}
+```
