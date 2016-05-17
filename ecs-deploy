@@ -69,6 +69,9 @@ function require {
     }
 }
 
+# Check for AWS, AWS Command Line Interface
+require aws
+
 # Setup default values for variables
 CLUSTER=false
 SERVICE=false
@@ -150,8 +153,6 @@ do
     shift # past argument or value
 done
 
-# Check for AWS, AWS Command Line Interface
-require aws
 # Check for jq, Command-line JSON processor
 require jq
 
