@@ -69,6 +69,11 @@ function require {
     }
 }
 
+# Check for AWS, AWS Command Line Interface
+require aws
+# Check for jq, Command-line JSON processor
+require jq
+
 # Setup default values for variables
 CLUSTER=false
 SERVICE=false
@@ -149,11 +154,6 @@ do
     esac
     shift # past argument or value
 done
-
-# Check for AWS, AWS Command Line Interface
-require aws
-# Check for jq, Command-line JSON processor
-require jq
 
 # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION and AWS_PROFILE can be set as environment variables
 if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then unset AWS_ACCESS_KEY_ID; fi
