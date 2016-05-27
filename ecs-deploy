@@ -297,7 +297,7 @@ echo "Current task definition: $TASK_DEFINITION";
 # + Update definition to use new image name
 # + Filter the def
 DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
-        | sed -e "s|\"image\": \"${imageWithoutTag}(:.*)?\"|\"image\": \"${useImage}\"|" \
+        | sed -e "s|\"image\": \"${imageWithoutTag}.*\"|\"image\": \"${useImage}\"|" \
         | jq '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}' )
 
 # Register the new task definition, and store its ARN
