@@ -301,9 +301,6 @@ DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
         | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
         | jq '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}' )
 
-echo $DEF;
-exit 1;
-
 # Register the new task definition, and store its ARN
 NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq -r .taskDefinition.taskDefinitionArn`
 echo "New task definition: $NEW_TASKDEF";
