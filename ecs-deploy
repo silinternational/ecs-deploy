@@ -286,6 +286,7 @@ fi
 
 echo "Using image name: $useImage"
 
+
 if [ $SERVICE != false ]; then
   # Get current task definition name from service
   TASK_DEFINITION=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
@@ -297,7 +298,7 @@ echo "Current task definition: $TASK_DEFINITION";
 # + Update definition to use new image name
 # + Filter the def
 DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
-        | sed -e "s|\"image\": \"${imageWithoutTag}(:.*)?\"|\"image\": \"${useImage}\"|" \
+        | sed -e "s|\"image\": \"${imageWithoutTag}\:.*\"|\"image\": \"${useImage}\"|" \
         | jq '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}' )
 
 # Register the new task definition, and store its ARN
