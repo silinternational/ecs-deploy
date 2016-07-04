@@ -133,11 +133,11 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
 
 ```json
 {
-  "Version":"2012-10-17",
-  "Statement":[
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "Sid":"Stmt1457037856137",
-      "Action":[
+      "Effect": "Allow",
+      "Action": [
         "ecs:DeregisterTaskDefinition",
         "ecs:DescribeServices",
         "ecs:DescribeTaskDefinition",
@@ -148,8 +148,7 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
         "ecs:StopTask",
         "ecs:UpdateService"
       ],
-      "Effect":"Allow",
-      "Resource":"*"
+      "Resource": "*"
     }
   ]
 }
