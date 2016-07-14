@@ -93,7 +93,7 @@ be an unlikely use case._
 This behavior allows two possible process to specify which images, and therefore which configurations, to deploy. First, you
 may set the tag to always be `latest` (or some other static value), like so:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:lastest
+    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:latest
 
 This will result in identical new versions of the Task Definition being created, but the Service will still do a blue/green
 deployment, and will so will pull down the latest version (if you previously pushed it into the registry).
