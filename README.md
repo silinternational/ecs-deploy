@@ -7,23 +7,24 @@ Usage
 -----
 
     Required arguments:
-        -k | --aws-access-key   AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
-        -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
-        -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
-        -p | --profile          AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed
-        -c | --cluster          Name of ECS cluster
-        -n | --service-name     Name of service to deploy
-        -i | --image            Name of Docker image to run, ex: repo/image:latest
-                                Format: [domain][:port][/repo][/][image][:tag]
-                                Examples: mariadb, mariadb:latest, silintl/mariadb,
-                                          silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
+        -k | --aws-access-key         AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
+        -s | --aws-secret-key         AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
+        -r | --region                 AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
+        -p | --profile                AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed
+        -p | --aws-instance-profile   Use the IAM role associated with the current AWS instance. Can only be used from within a running AWS instance. If you set this, aws-access-key and aws-secret-key are not needed
+        -c | --cluster                Name of ECS cluster
+        -n | --service-name           Name of service to deploy
+        -i | --image                  Name of Docker image to run, ex: repo/image:latest
+                                      Format: [domain][:port][/repo][/][image][:tag]
+                                      Examples: mariadb, mariadb:latest, silintl/mariadb,
+                                                silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
-        -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
-        -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
-        -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
-        -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
-        -v | --verbose          Verbose output
+        -m | --min                    minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
+        -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
+        -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
+        -e | --tag-env-var            Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        -v | --verbose                Verbose output
 
     Examples:
       Simple (Using env vars for AWS settings):
