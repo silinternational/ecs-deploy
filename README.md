@@ -11,7 +11,7 @@ Usage
         -s | --aws-secret-key         AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
         -r | --region                 AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
         -p | --profile                AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed
-        -p | --aws-instance-profile   Use the IAM role associated with the current AWS instance. Can only be used from within a running AWS instance. If you set this, aws-access-key and aws-secret-key are not needed
+           | --aws-instance-profile   Use the IAM role associated with the current AWS instance. Can only be used from within a running AWS instance. If you set this, aws-access-key and aws-secret-key are not needed
         -c | --cluster                Name of ECS cluster
         -n | --service-name           Name of service to deploy
         -i | --image                  Name of Docker image to run, ex: repo/image:latest
