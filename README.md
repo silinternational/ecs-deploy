@@ -7,23 +7,24 @@ Usage
 -----
 
     Required arguments:
-        -k | --aws-access-key   AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
-        -s | --aws-secret-key   AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
-        -r | --region           AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
-        -p | --profile          AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed
-        -c | --cluster          Name of ECS cluster
-        -n | --service-name     Name of service to deploy
-        -i | --image            Name of Docker image to run, ex: repo/image:latest
-                                Format: [domain][:port][/repo][/][image][:tag]
-                                Examples: mariadb, mariadb:latest, silintl/mariadb,
-                                          silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
+        -k | --aws-access-key         AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
+        -s | --aws-secret-key         AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
+        -r | --region                 AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
+        -p | --profile                AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed
+        -p | --aws-instance-profile   Use the IAM role associated with the current AWS instance. Can only be used from within a running AWS instance. If you set this, aws-access-key and aws-secret-key are not needed
+        -c | --cluster                Name of ECS cluster
+        -n | --service-name           Name of service to deploy
+        -i | --image                  Name of Docker image to run, ex: repo/image:latest
+                                      Format: [domain][:port][/repo][/][image][:tag]
+                                      Examples: mariadb, mariadb:latest, silintl/mariadb,
+                                                silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
-        -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
-        -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
-        -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
-        -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
-        -v | --verbose          Verbose output
+        -m | --min                    minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
+        -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
+        -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
+        -e | --tag-env-var            Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        -v | --verbose                Verbose output
 
     Examples:
       Simple (Using env vars for AWS settings):
@@ -93,7 +94,7 @@ be an unlikely use case._
 This behavior allows two possible process to specify which images, and therefore which configurations, to deploy. First, you
 may set the tag to always be `latest` (or some other static value), like so:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:lastest
+    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:latest
 
 This will result in identical new versions of the Task Definition being created, but the Service will still do a blue/green
 deployment, and will so will pull down the latest version (if you previously pushed it into the registry).
@@ -133,11 +134,11 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
 
 ```json
 {
-  "Version":"2012-10-17",
-  "Statement":[
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "Sid":"Stmt1457037856137",
-      "Action":[
+      "Effect": "Allow",
+      "Action": [
         "ecs:DeregisterTaskDefinition",
         "ecs:DescribeServices",
         "ecs:DescribeTaskDefinition",
@@ -148,9 +149,15 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
         "ecs:StopTask",
         "ecs:UpdateService"
       ],
-      "Effect":"Allow",
-      "Resource":"*"
+      "Resource": "*"
     }
   ]
 }
 ```
+
+Troubleshooting
+---------------
+ - You must provide AWS credentials in one of the supported formats. If you do 
+   not, you'll see some error output from the AWS CLI, something like:
+
+        You must specify a region. You can also configure your region by running "aws configure".
