@@ -154,3 +154,10 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
   ]
 }
 ```
+
+Troubleshooting
+---------------
+ - You must provide AWS credentials in one of the supported formats. If you do 
+   not, you'll see some error output from the AWS CLI, something like:
+
+        You must specify a region. You can also configure your region by running "aws configure".
