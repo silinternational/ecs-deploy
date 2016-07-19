@@ -29,6 +29,7 @@ function usage() {
         -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        --deregister-task       Deregister old Task Definition after a successful deployment.
         -v | --verbose          Verbose output
 
     Requirements:
@@ -78,6 +79,7 @@ require jq
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
+DEREGISTER_TASK=false
 IMAGE=false
 MIN=false
 MAX=false
@@ -143,6 +145,9 @@ do
         -e|--tag-env-var)
             TAGVAR="$2"
             shift
+            ;;
+        --deregister-task)
+            DEREGISTER_TASK=true
             ;;
         -v|--verbose)
             VERBOSE=true
@@ -325,6 +330,13 @@ else
 
   if [ "$RUNNING" ]; then
     echo "Service updated successfully, new task definition running.";
+    
+    if [ $DEREGISTER_TASK == true ]; then
+        DEREGISTER=`$AWS_ECS deregister-task-definition --task-definition $TASK_DEFINITION`
+        
+        echo "Deregistered old task definition."
+    fi
+    
     exit 0
   fi
 
