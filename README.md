@@ -27,7 +27,7 @@ Usage
         --max-definitions             Number of Task Definition Revisions to persist before deregistering oldest revisions.
                                       Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
-                                            Also will only perform deregistration if deployment succeeds.
+                                            Script will only perform deregistration if deployment succeeds.
         -v | --verbose                Verbose output
 
     Examples:
