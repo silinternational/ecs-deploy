@@ -29,7 +29,7 @@ function usage() {
         -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
-        --deregister-task       Deregister old Task Definition after a successful deployment.
+        --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
         -v | --verbose          Verbose output
 
     Requirements:
@@ -79,7 +79,7 @@ require jq
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
-DEREGISTER_TASK=false
+MAX_DEFINITIONS=0
 IMAGE=false
 MIN=false
 MAX=false
@@ -146,8 +146,8 @@ do
             TAGVAR="$2"
             shift
             ;;
-        --deregister-task)
-            DEREGISTER_TASK=true
+        --max-definitions)
+            MAX_DEFINITIONS="$2"
             ;;
         -v|--verbose)
             VERBOSE=true
@@ -192,6 +192,10 @@ if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
 fi
 if [ $IMAGE == false ]; then
     echo "IMAGE is required. You can pass the value using -i or --image"
+    exit 1
+fi
+if ! [[ $MAX_DEFINITIONS =~ ^-?[0-9]+$ ]]; then
+    echo "MAX_DEFINITIONS must be numeric, or not defined."
     exit 1
 fi
 
@@ -330,13 +334,26 @@ else
 
   if [ "$RUNNING" ]; then
     echo "Service updated successfully, new task definition running.";
-    
-    if [ $DEREGISTER_TASK == true ]; then
-        DEREGISTER=`$AWS_ECS deregister-task-definition --task-definition $TASK_DEFINITION`
-        
-        echo "Deregistered old task definition."
+
+    if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+        FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
+        FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
+        TASK_REVISIONS=`aws ecs list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+
+        NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
+
+        if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
+            LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
+            for i in $(seq 0 $LAST_OUTDATED_INDEX); do
+                OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
+
+                echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
+
+                `aws ecs deregister-task-definition --task-definition $OUTDATED_REVISION_ARN`
+            done
+        fi
     fi
-    
+
     exit 0
   fi
 

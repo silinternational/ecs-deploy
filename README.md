@@ -24,7 +24,10 @@ Usage
         -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
         -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var            Get image tag name from environment variable. If provided this will override value specified in image name argument.
-        --deregister-task             Deregister old Task Definition after a successful deployment.
+        --max-definitions             Number of Task Definition Revisions to persist before deregistering oldest revisions.
+                                      Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
+                                            Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
+                                            Also will only perform deregistration if deployment succeeds.
         -v | --verbose                Verbose output
 
     Examples:
@@ -158,7 +161,7 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
 
 Troubleshooting
 ---------------
- - You must provide AWS credentials in one of the supported formats. If you do 
+ - You must provide AWS credentials in one of the supported formats. If you do
    not, you'll see some error output from the AWS CLI, something like:
 
         You must specify a region. You can also configure your region by running "aws configure".
