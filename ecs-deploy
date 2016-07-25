@@ -350,7 +350,7 @@ else
 
                 echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
 
-                $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN"
+                $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
             done
         fi
     fi
