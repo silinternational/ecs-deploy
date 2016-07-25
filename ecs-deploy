@@ -339,7 +339,7 @@ else
     if [[ $MAX_DEFINITIONS -gt 0 ]]; then
         FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
         FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
-        TASK_REVISIONS=`aws ecs list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+        TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
 
         NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
 
@@ -350,7 +350,7 @@ else
 
                 echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
 
-                `aws ecs deregister-task-definition --task-definition $OUTDATED_REVISION_ARN`
+                `$AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN"`
             done
         fi
     fi
