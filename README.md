@@ -148,6 +148,7 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
         "ecs:DescribeTaskDefinition",
         "ecs:DescribeTasks",
         "ecs:ListTasks",
+        "ecs:ListTaskDefinitions",
         "ecs:RegisterTaskDefinition",
         "ecs:StartTask",
         "ecs:StopTask",
