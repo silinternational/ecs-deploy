@@ -148,6 +148,7 @@ do
             ;;
         --max-definitions)
             MAX_DEFINITIONS="$2"
+            shift
             ;;
         -v|--verbose)
             VERBOSE=true
