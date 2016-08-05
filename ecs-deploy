@@ -309,30 +309,36 @@ else
   # Update the service
   UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
 
-  # See if the service is able to come up again
-  every=10
-  i=0
-  while [ $i -lt $TIMEOUT ]
-  do
-    # Scan the list of running tasks for that service, and see if one of them is the
-    # new version of the task definition
+  # Only excepts RUNNING state from services whose desired-count > 0
+  SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
+  if [ $SERVICE_DESIREDCOUNT -gt 0 ]; then
+    # See if the service is able to come up again
+    every=10
+    i=0
+    while [ $i -lt $TIMEOUT ]
+    do
+      # Scan the list of running tasks for that service, and see if one of them is the
+      # new version of the task definition
 
-  RUNNING=$($AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
-    | jq -r '.taskArns[]' \
-    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
-    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-    | grep -e "RUNNING" || : )
+    RUNNING=$($AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
+      | jq -r '.taskArns[]' \
+      | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
+      | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
+      | grep -e "RUNNING" || : )
 
-  if [ "$RUNNING" ]; then
-    echo "Service updated successfully, new task definition running.";
-    exit 0
+    if [ "$RUNNING" ]; then
+      echo "Service updated successfully, new task definition running.";
+      exit 0
+    fi
+
+      sleep $every
+      i=$(( $i + $every ))
+    done
+
+    # Timeout
+    echo "ERROR: New task definition not running within $TIMEOUT seconds"
+    exit 1
+  else
+    echo "Skipping check for running task definition, as desired-count <= 0"
   fi
-
-    sleep $every
-    i=$(( $i + $every ))
-  done
-
-  # Timeout
-  echo "ERROR: New task definition not running within $TIMEOUT seconds"
-  exit 1
 fi
