@@ -20,6 +20,7 @@ Usage
                                                 silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
+        -D | --desired-count          The number of instantiations of the task to place and keep running in your service.
         -m | --min                    minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
         -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
         -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
@@ -33,7 +34,7 @@ Usage
 
       All options:
 
-        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -D 2 -e CI_TIMESTAMP -v
 
         Using profiles (for STS delegated credentials, for instance):
 
