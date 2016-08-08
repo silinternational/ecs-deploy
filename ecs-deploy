@@ -317,11 +317,11 @@ else
     # Scan the list of running tasks for that service, and see if one of them is the
     # new version of the task definition
 
-  RUNNING=$($AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
-    | jq -r '.taskArns[]' \
-    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
+  RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
+      | jq -r '.taskArns[]')
+  RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
     | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-    | grep -e "RUNNING" || : )
+    | grep -e "RUNNING") || :
 
   if [ "$RUNNING" ]; then
     echo "Service updated successfully, new task definition running.";
