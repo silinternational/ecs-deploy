@@ -319,50 +319,56 @@ else
   # Update the service
   UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
 
-  # See if the service is able to come up again
-  every=10
-  i=0
-  while [ $i -lt $TIMEOUT ]
-  do
-    # Scan the list of running tasks for that service, and see if one of them is the
-    # new version of the task definition
+  # Only excepts RUNNING state from services whose desired-count > 0
+  SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
+  if [ $SERVICE_DESIREDCOUNT -gt 0 ]; then
+    # See if the service is able to come up again
+    every=10
+    i=0
+    while [ $i -lt $TIMEOUT ]
+    do
+      # Scan the list of running tasks for that service, and see if one of them is the
+      # new version of the task definition
 
-  RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
-      | jq -r '.taskArns[]')
-  RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
-    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-    | grep -e "RUNNING") || :
+      RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
+          | jq -r '.taskArns[]')
+      RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
+        | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
+        | grep -e "RUNNING") || :
 
-  if [ "$RUNNING" ]; then
-    echo "Service updated successfully, new task definition running.";
+      if [ "$RUNNING" ]; then
+        echo "Service updated successfully, new task definition running.";
 
-    if [[ $MAX_DEFINITIONS -gt 0 ]]; then
-        FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
-        FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
-        TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+        if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+            FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
+            FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
+            TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
 
-        NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
+            NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
 
-        if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
-            LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
-            for i in $(seq 0 $LAST_OUTDATED_INDEX); do
-                OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
+            if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
+                LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
+                for i in $(seq 0 $LAST_OUTDATED_INDEX); do
+                    OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
 
-                echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
+                    echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
 
-                $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
-            done
+                    $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
+                done
+            fi
         fi
-    fi
 
-    exit 0
+        exit 0
+      fi
+
+      sleep $every
+      i=$(( $i + $every ))
+    done
+
+    # Timeout
+    echo "ERROR: New task definition not running within $TIMEOUT seconds"
+    exit 1
+  else
+    echo "Skipping check for running task definition, as desired-count <= 0"
   fi
-
-    sleep $every
-    i=$(( $i + $every ))
-  done
-
-  # Timeout
-  echo "ERROR: New task definition not running within $TIMEOUT seconds"
-  exit 1
 fi
