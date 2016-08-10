@@ -25,6 +25,7 @@ function usage() {
         --aws-instance-profile  Use the IAM role associated with this instance
 
     Optional arguments:
+        -D | --desired-count    The number of instantiations of the task to place and keep running in your service.
         -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
         -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
@@ -140,6 +141,10 @@ do
             ;;
         -M|--max)
             MAX="$2"
+            shift
+            ;;
+        -D|--desired-count)
+            DESIRED="$2"
             shift
             ;;
         -e|--tag-env-var)
@@ -316,8 +321,13 @@ else
     DEPLOYMENT_CONFIG="--deployment-configuration ${DEPLOYMENT_CONFIG:1}"
   fi
 
+  DESIRED_COUNT=""
+  if [ $DESIRED != false ]; then
+    DESIRED_COUNT="--desired-count $DESIRED"
+  fi
+
   # Update the service
-  UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
+  UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
 
   # Only excepts RUNNING state from services whose desired-count > 0
   SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
