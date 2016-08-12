@@ -322,7 +322,7 @@ else
   fi
 
   DESIRED_COUNT=""
-  if [ $DESIRED != false ]; then
+  if [ ! -z "$DESIRED" ]; then
     DESIRED_COUNT="--desired-count $DESIRED"
   fi
 
