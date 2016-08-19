@@ -342,14 +342,15 @@ else
 
       RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
           | jq -r '.taskArns[]')
+      if [[ ! -z $RUNNING_TASKS ]] ; then
       RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
         | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
         | grep -e "RUNNING") || :
 
-      if [ "$RUNNING" ]; then
-        echo "Service updated successfully, new task definition running.";
+        if [ "$RUNNING" ]; then
+          echo "Service updated successfully, new task definition running.";
 
-        if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+          if [[ $MAX_DEFINITIONS -gt 0 ]]; then
             FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
             FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
             TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
@@ -366,9 +367,10 @@ else
                     $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
                 done
             fi
-        fi
+          fi
 
-        exit 0
+          exit 0
+        fi
       fi
 
       sleep $every
