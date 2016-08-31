@@ -300,11 +300,28 @@ echo "Current task definition: $TASK_DEFINITION";
 # + Filter the def
 DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
         | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
-        | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
-        | jq '.taskDefinition|if .networkMode then {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, networkMode: .networkMode} else {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions} end' )
+        | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g"
+        #| jq '.taskDefinition|if .networkMode then {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, taskRoleArn: .taskRoleArn, networkMode: .networkMode} else {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, taskRoleArn: .taskRoleArn} end'
+)
+
+# Default JQ filter for new task definition
+NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions"
+
+# Some options in task definition should only be included in new definition if present in
+# current definition. If found in current definition, append to JQ filter.
+CONDITIONAL_OPTIONS=(networkMode taskRoleArn)
+for i in "${CONDITIONAL_OPTIONS[@]}"; do
+  re=".*${i}.*"
+  if [[ "$DEF" =~ $re ]]; then
+    NEW_DEF_JQ_FILTER="${NEW_DEF_JQ_FILTER}, ${i}: .${i}"
+  fi
+done
+
+# Build new DEF with jq filter
+NEW_DEF=$(echo $DEF | jq ".taskDefinition|{${NEW_DEF_JQ_FILTER}}")
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq -r .taskDefinition.taskDefinitionArn`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
 echo "New task definition: $NEW_TASKDEF";
 
 if [ $SERVICE == false ]; then
