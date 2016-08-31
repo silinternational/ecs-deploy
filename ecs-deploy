@@ -25,10 +25,12 @@ function usage() {
         --aws-instance-profile  Use the IAM role associated with this instance
 
     Optional arguments:
+        -D | --desired-count    The number of instantiations of the task to place and keep running in your service.
         -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
         -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
         -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
         -v | --verbose          Verbose output
 
     Requirements:
@@ -78,6 +80,7 @@ require jq
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
+MAX_DEFINITIONS=0
 IMAGE=false
 MIN=false
 MAX=false
@@ -140,8 +143,16 @@ do
             MAX="$2"
             shift
             ;;
+        -D|--desired-count)
+            DESIRED="$2"
+            shift
+            ;;
         -e|--tag-env-var)
             TAGVAR="$2"
+            shift
+            ;;
+        --max-definitions)
+            MAX_DEFINITIONS="$2"
             shift
             ;;
         -v|--verbose)
@@ -187,6 +198,10 @@ if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
 fi
 if [ $IMAGE == false ]; then
     echo "IMAGE is required. You can pass the value using -i or --image"
+    exit 1
+fi
+if ! [[ $MAX_DEFINITIONS =~ ^-?[0-9]+$ ]]; then
+    echo "MAX_DEFINITIONS must be numeric, or not defined."
     exit 1
 fi
 
@@ -306,33 +321,64 @@ else
     DEPLOYMENT_CONFIG="--deployment-configuration ${DEPLOYMENT_CONFIG:1}"
   fi
 
-  # Update the service
-  UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
-
-  # See if the service is able to come up again
-  every=10
-  i=0
-  while [ $i -lt $TIMEOUT ]
-  do
-    # Scan the list of running tasks for that service, and see if one of them is the
-    # new version of the task definition
-
-  RUNNING=$($AWS_ECS list-tasks --cluster $CLUSTER  --service-name $SERVICE --desired-status RUNNING \
-    | jq -r '.taskArns[]' \
-    | xargs -I{} $AWS_ECS describe-tasks --cluster $CLUSTER --tasks {} \
-    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-    | grep -e "RUNNING" || : )
-
-  if [ "$RUNNING" ]; then
-    echo "Service updated successfully, new task definition running.";
-    exit 0
+  DESIRED_COUNT=""
+  if [ ! -z "$DESIRED" ]; then
+    DESIRED_COUNT="--desired-count $DESIRED"
   fi
 
-    sleep $every
-    i=$(( $i + $every ))
-  done
+  # Update the service
+  UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
 
-  # Timeout
-  echo "ERROR: New task definition not running within $TIMEOUT seconds"
-  exit 1
+  # Only excepts RUNNING state from services whose desired-count > 0
+  SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
+  if [ $SERVICE_DESIREDCOUNT -gt 0 ]; then
+    # See if the service is able to come up again
+    every=10
+    i=0
+    while [ $i -lt $TIMEOUT ]
+    do
+      # Scan the list of running tasks for that service, and see if one of them is the
+      # new version of the task definition
+
+      RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
+          | jq -r '.taskArns[]')
+      RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
+        | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
+        | grep -e "RUNNING") || :
+
+      if [ "$RUNNING" ]; then
+        echo "Service updated successfully, new task definition running.";
+
+        if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+            FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
+            FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
+            TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+
+            NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
+
+            if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
+                LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
+                for i in $(seq 0 $LAST_OUTDATED_INDEX); do
+                    OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
+
+                    echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
+
+                    $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
+                done
+            fi
+        fi
+
+        exit 0
+      fi
+
+      sleep $every
+      i=$(( $i + $every ))
+    done
+
+    # Timeout
+    echo "ERROR: New task definition not running within $TIMEOUT seconds"
+    exit 1
+  else
+    echo "Skipping check for running task definition, as desired-count <= 0"
+  fi
 fi

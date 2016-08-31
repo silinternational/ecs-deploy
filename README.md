@@ -20,10 +20,15 @@ Usage
                                                 silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
+        -D | --desired-count          The number of instantiations of the task to place and keep running in your service.
         -m | --min                    minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
         -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
         -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var            Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        --max-definitions             Number of Task Definition Revisions to persist before deregistering oldest revisions.
+                                      Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
+                                            Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
+                                            Script will only perform deregistration if deployment succeeds.
         -v | --verbose                Verbose output
 
     Examples:
@@ -33,7 +38,7 @@ Usage
 
       All options:
 
-        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -D 2 -e CI_TIMESTAMP -v
 
         Using profiles (for STS delegated credentials, for instance):
 
@@ -144,6 +149,7 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
         "ecs:DescribeTaskDefinition",
         "ecs:DescribeTasks",
         "ecs:ListTasks",
+        "ecs:ListTaskDefinitions",
         "ecs:RegisterTaskDefinition",
         "ecs:StartTask",
         "ecs:StopTask",
@@ -157,7 +163,7 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
 
 Troubleshooting
 ---------------
- - You must provide AWS credentials in one of the supported formats. If you do 
+ - You must provide AWS credentials in one of the supported formats. If you do
    not, you'll see some error output from the AWS CLI, something like:
 
         You must specify a region. You can also configure your region by running "aws configure".
