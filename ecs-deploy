@@ -115,6 +115,7 @@ do
             shift # past argument
             ;;
         --aws-instance-profile)
+            echo "--aws-instance-profile is not yet in use"
             AWS_IAM_ROLE=true
             ;;
         -c|--cluster)
