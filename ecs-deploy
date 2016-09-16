@@ -301,10 +301,10 @@ echo "Current task definition: $TASK_DEFINITION";
 # Get a JSON representation of the current task definition
 # + Update definition to use new image name
 # + Filter the def
-DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
-        | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
-        | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
-        | jq '.taskDefinition|if .networkMode then {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, networkMode: .networkMode} else {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions} end' )
+td=$($AWS_ECS describe-task-definition --task-def "$TASK_DEFINITION" \
+    | jq '.taskDefinition')
+changedDefinition=$(echo "$td" | jq ".containerDefinitions | [.[] | .+{image: \"$useImage\"}]")
+DEF=$(echo "$td" | jq "if .networkMode then {family: .family, volumes: .volumes, containerDefinitions: $changedDefinition, networkMode: .networkMode} else {family: .family, volumes: .volumes, containerDefinitions: $changedDefinition} end")
 
 # Register the new task definition, and store its ARN
 NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq -r .taskDefinition.taskDefinitionArn`
