@@ -300,11 +300,27 @@ echo "Current task definition: $TASK_DEFINITION";
 # + Filter the def
 DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
         | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
-        | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
-        | jq '.taskDefinition|{family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions}' )
+        | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g"
+)
+
+# Default JQ filter for new task definition
+NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions"
+
+# Some options in task definition should only be included in new definition if present in
+# current definition. If found in current definition, append to JQ filter.
+CONDITIONAL_OPTIONS=(networkMode taskRoleArn)
+for i in "${CONDITIONAL_OPTIONS[@]}"; do
+  re=".*${i}.*"
+  if [[ "$DEF" =~ $re ]]; then
+    NEW_DEF_JQ_FILTER="${NEW_DEF_JQ_FILTER}, ${i}: .${i}"
+  fi
+done
+
+# Build new DEF with jq filter
+NEW_DEF=$(echo $DEF | jq ".taskDefinition|{${NEW_DEF_JQ_FILTER}}")
 
 # Register the new task definition, and store its ARN
-NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$DEF" | jq -r .taskDefinition.taskDefinitionArn`
+NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
 echo "New task definition: $NEW_TASKDEF";
 
 if [ $SERVICE == false ]; then
@@ -342,14 +358,16 @@ else
 
       RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
           | jq -r '.taskArns[]')
-      RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
-        | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-        | grep -e "RUNNING") || :
 
-      if [ "$RUNNING" ]; then
-        echo "Service updated successfully, new task definition running.";
+      if [[ ! -z $RUNNING_TASKS ]] ; then
+        RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
+          | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
+          | grep -e "RUNNING") || :
 
-        if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+        if [ "$RUNNING" ]; then
+          echo "Service updated successfully, new task definition running.";
+
+          if [[ $MAX_DEFINITIONS -gt 0 ]]; then
             FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
             FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
             TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
@@ -366,9 +384,10 @@ else
                     $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
                 done
             fi
-        fi
+          fi
 
-        exit 0
+          exit 0
+        fi
       fi
 
       sleep $every
