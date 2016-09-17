@@ -268,16 +268,16 @@ fi
 
 # Reassemble image name
 useImage=""
-if [[ ! -z "${domain+undefined-guard}" ]]; then
+if [[ ! -z ${domain+undefined-guard} ]]; then
   useImage="$domain"
 fi
-if [[ ! -z "${port+undefined-guard}" ]]; then
+if [[ ! -z ${port} ]]; then
   useImage="$useImage:$port"
 fi
-if [[ ! -z "${repo+undefined-guard}" ]]; then
+if [[ ! -z ${repo+undefined-guard} ]]; then
   useImage="$useImage/$repo"
 fi
-if [[ ! -z "${img+undefined-guard}" ]]; then
+if [[ ! -z ${img+undefined-guard} ]]; then
   if [[ "x$useImage" == "x" ]]; then
     useImage="$img"
   else
@@ -341,7 +341,7 @@ else
   fi
 
   DESIRED_COUNT=""
-  if [ ! -z "${DESIRED+undefined-guard}" ]; then
+  if [ ! -z ${DESIRED+undefined-guard} ]; then
     DESIRED_COUNT="--desired-count $DESIRED"
   fi
 
