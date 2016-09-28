@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -e
+set -o errexit
+set -o pipefail
+set -u
 
 function usage() {
     set -e
@@ -64,7 +66,7 @@ if [ $# == 0 ]; then usage; fi
 
 # Check requirements
 function require {
-    command -v $1 > /dev/null 2>&1 || {
+    command -v "$1" > /dev/null 2>&1 || {
         echo "Some of the required software is not installed:"
         echo "    please install $1" >&2;
         exit 1;
@@ -91,7 +93,7 @@ AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 
 # Loop through arguments, two at a time for key and value
-while [[ $# > 0 ]]
+while [[ $# -gt 0 ]]
 do
     key="$1"
 
@@ -113,6 +115,7 @@ do
             shift # past argument
             ;;
         --aws-instance-profile)
+            echo "--aws-instance-profile is not yet in use"
             AWS_IAM_ROLE=true
             ;;
         -c|--cluster)
@@ -265,16 +268,16 @@ fi
 
 # Reassemble image name
 useImage=""
-if [[ "x$domain" != "x" ]]; then
+if [[ ! -z ${domain+undefined-guard} ]]; then
   useImage="$domain"
 fi
-if [[ "x$port" != "x" ]]; then
+if [[ ! -z ${port} ]]; then
   useImage="$useImage:$port"
 fi
-if [[ "x$repo" != "x" ]]; then
+if [[ ! -z ${repo+undefined-guard} ]]; then
   useImage="$useImage/$repo"
 fi
-if [[ "x$img" != "x" ]]; then
+if [[ ! -z ${img+undefined-guard} ]]; then
   if [[ "x$useImage" == "x" ]]; then
     useImage="$img"
   else
@@ -282,7 +285,7 @@ if [[ "x$img" != "x" ]]; then
   fi
 fi
 imageWithoutTag="$useImage"
-if [[ "x$tag" != "x" ]]; then
+if [[ ! -z ${tag+undefined-guard} ]]; then
   useImage="$useImage:$tag"
 fi
 
@@ -298,10 +301,10 @@ echo "Current task definition: $TASK_DEFINITION";
 # Get a JSON representation of the current task definition
 # + Update definition to use new image name
 # + Filter the def
-DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
-        | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
-        | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g"
-)
+td=$($AWS_ECS describe-task-definition --task-def "$TASK_DEFINITION" \
+    | jq '.taskDefinition')
+changedDefinition=$(echo "$td" | jq ".containerDefinitions | [.[] | .+{image: \"$useImage\"}]")
+DEF=$(echo "$td" | jq ".+{containerDefinitions: $changedDefinition}")
 
 # Default JQ filter for new task definition
 NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions"
@@ -317,7 +320,7 @@ for i in "${CONDITIONAL_OPTIONS[@]}"; do
 done
 
 # Build new DEF with jq filter
-NEW_DEF=$(echo $DEF | jq ".taskDefinition|{${NEW_DEF_JQ_FILTER}}")
+NEW_DEF=$(echo $DEF | jq "{${NEW_DEF_JQ_FILTER}}")
 
 # Register the new task definition, and store its ARN
 NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
@@ -338,7 +341,7 @@ else
   fi
 
   DESIRED_COUNT=""
-  if [ ! -z "$DESIRED" ]; then
+  if [ ! -z ${DESIRED+undefined-guard} ]; then
     DESIRED_COUNT="--desired-count $DESIRED"
   fi
 
