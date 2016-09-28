@@ -275,7 +275,9 @@ if [[ ! -z ${port} ]]; then
   useImage="$useImage:$port"
 fi
 if [[ ! -z ${repo+undefined-guard} ]]; then
+ if [[ ! "x$repo" == "x" ]]; then
   useImage="$useImage/$repo"
+ fi
 fi
 if [[ ! -z ${img+undefined-guard} ]]; then
   if [[ "x$useImage" == "x" ]]; then
