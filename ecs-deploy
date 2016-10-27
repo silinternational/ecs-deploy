@@ -306,7 +306,7 @@ echo "Current task definition: $TASK_DEFINITION";
 DEF=$( $AWS_ECS describe-task-definition --task-def $TASK_DEFINITION \
         | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
         | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
-        | jq '.taskDefinition|if .networkMode then {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, networkMode: .networkMode} else {family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions} end' )
+        | jq '.taskDefinition' )
 
 # Default JQ filter for new task definition
 NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions"
