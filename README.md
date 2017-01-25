@@ -153,7 +153,8 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
         "ecs:RegisterTaskDefinition",
         "ecs:StartTask",
         "ecs:StopTask",
-        "ecs:UpdateService"
+        "ecs:UpdateService",
+        "iam:PassRole"
       ],
       "Resource": "*"
     }
