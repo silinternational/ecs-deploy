@@ -73,6 +73,10 @@ function require {
     }
 }
 
+function getnumberofdeployments {
+  NUM_DEPLOYMENTS=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq "[.services[].deployments[]] | length")
+}
+
 # Check for AWS, AWS Command Line Interface
 require aws
 # Check for jq, Command-line JSON processor
@@ -360,6 +364,7 @@ else
     do
       # Scan the list of running tasks for that service, and see if one of them is the
       # new version of the task definition
+      DEPLOYMENT_SUCCESS="false"
 
       RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
           | jq -r '.taskArns[]')
@@ -370,7 +375,31 @@ else
           | grep -e "RUNNING") || :
 
         if [ "$RUNNING" ]; then
-          echo "Service updated successfully, new task definition running.";
+          getnumberofdeployments
+
+          while [ $i -lt $TIMEOUT ]
+          do
+
+            # Wait to see if more than 1 deployment stays running
+            # If the wait time has passed, we need to roll back
+            if [ $NUM_DEPLOYMENTS -eq 1 ]; then
+              echo "Service updated successfully, new task definition running.";
+              DEPLOYMENT_SUCCESS="true"
+              i=$TIMEOUT
+            else
+              echo "Sleeping for ${every}"
+              sleep $every
+              i=$(( $i + $every ))
+            fi
+
+            getnumberofdeployments
+          done
+
+          if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
+            echo "Rolling back to ${TASK_DEFINITION}"
+            $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $TASK_DEFINITION > /dev/null
+            exit 1
+          fi
 
           if [[ $MAX_DEFINITIONS -gt 0 ]]; then
             FAMILY_PREFIX=${TASK_DEFINITION##*:task-definition/}
@@ -406,3 +435,4 @@ else
     echo "Skipping check for running task definition, as desired-count <= 0"
   fi
 fi
+
