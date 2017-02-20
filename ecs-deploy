@@ -170,8 +170,8 @@ do
 done
 
 # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION and AWS_PROFILE can be set as environment variables
-if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then unset AWS_ACCESS_KEY_ID; fi
-if [ -z ${AWS_SECRET_ACCESS_KEY+x} ]; then unset AWS_SECRET_ACCESS_KEY; fi
+if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then unset AWS_ACCESS_KEY_ID; else export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID; fi
+if [ -z ${AWS_SECRET_ACCESS_KEY+x} ]; then unset AWS_SECRET_ACCESS_KEY; else export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY; fi
 if [ -z ${AWS_DEFAULT_REGION+x} ];
   then unset AWS_DEFAULT_REGION
   else
