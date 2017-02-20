@@ -12,5 +12,3 @@ RUN apt-get update -y \
 COPY ecs-deploy /usr/local/bin/ecs-deploy
 
 RUN chmod a+x /usr/local/bin/ecs-deploy
-
-ENTRYPOINT ["/usr/local/bin/ecs-deploy"]
