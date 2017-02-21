@@ -225,7 +225,7 @@ function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
       # Get current task definition name from service
       TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
-      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION`
+      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
     fi
 }
 
@@ -233,7 +233,7 @@ function createNewTaskDefJson() {
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
     # + Filter the def
-    DEF=$( echo $TASK_DEFINITION \
+    DEF=$( echo "$TASK_DEFINITION" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
             | jq '.taskDefinition' )
@@ -253,6 +253,11 @@ function createNewTaskDefJson() {
 
     # Build new DEF with jq filter
     NEW_DEF=$(echo $DEF | jq "{${NEW_DEF_JQ_FILTER}}")
+
+    # If in test mode output $NEW_DEF
+    if [ "$BASH_SOURCE" != "$0" ]; then
+      echo $NEW_DEF
+    fi
 }
 
 function registerNewTaskDefinition() {
@@ -440,7 +445,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
     # Get current task definition
     getCurrentTaskDefinition
-    echo "Current task definition: $TASK_DEFINITION";
+    echo "Current task definition: $TASK_DEFINITION_ARN";
 
     # create new task definition json
     createNewTaskDefJson

@@ -1,4 +1,16 @@
 ecsdeploy:
-    image: silintl/ecs-deploy
+    image: ecs-deploy
     env_file:
         - local.env
+    volumes:
+        - ./ecs-deploy:/ecs-deploy
+
+test:
+    image: ecs-deploy
+    env_file:
+        - local.env
+    entrypoint: ["bash"]
+    command: ["/run-tests.sh"]
+    volumes:
+        - ./ecs-deploy:/ecs-deploy
+        - ./run-tests.sh:/run-tests.sh
