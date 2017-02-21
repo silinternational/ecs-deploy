@@ -25,7 +25,6 @@ AWS_ECS="$AWS_CLI --output json ecs"
 imageRegex="^([a-zA-Z0-9.\-]+):?([0-9]+)?/([a-zA-Z0-9._-]+)/?([a-zA-Z0-9._-]+)?:?([a-zA-Z0-9\._-]+)?$"
 
 function usage() {
-    #set -e
     cat <<EOM
 ##### ecs-deploy #####
 Simple script for triggering blue/green deployments on Amazon Elastic Container Service
@@ -108,10 +107,6 @@ function assertRequiredArgumentsSet() {
       then unset AWS_PROFILE
       else
               AWS_ECS="$AWS_ECS --profile $AWS_PROFILE"
-    fi
-
-    if [ $VERBOSE == true ]; then
-        set -x
     fi
 
     if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
@@ -435,6 +430,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         esac
         shift # past argument or value
     done
+
+    if [ $VERBOSE == true ]; then
+        set -x
+    fi
 
     # Check that required arguments are provided
     assertRequiredArgumentsSet
