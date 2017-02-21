@@ -1,6 +1,8 @@
 ecs-deploy
 =================
 
+[ ![Codeship Status for silinternational/ecs-deploy](https://app.codeship.com/projects/393a91e0-da8d-0134-6603-1e487e818871/status?branch=master)](https://app.codeship.com/projects/203720)
+
 This script uses the Task Definition and Service entities in Amazon's ECS to instigate an automatic blue/green deployment.
 
 Usage
@@ -168,3 +170,13 @@ Troubleshooting
    not, you'll see some error output from the AWS CLI, something like:
 
         You must specify a region. You can also configure your region by running "aws configure".
+
+Testing
+-------
+Automated tests are performed using [bats](https://github.com/sstephenson/bats).
+The goal of testing is to ensure that updates/changes do not break core functionality.
+Unfortunately not all of `ecs-deploy` is testable since portions interact with
+AWS APIs to perform actions. So for now any parsing/processing of data locally
+is tested.
+
+Any new functionality and pull requests should come with tests as well (if possible).
