@@ -1,12 +1,12 @@
 ecsdeploy:
-    image: ecs-deploy
+    build: .
     env_file:
         - local.env
     volumes:
         - ./ecs-deploy:/ecs-deploy
 
 test:
-    image: ecs-deploy
+    build: .
     env_file:
         - local.env
     entrypoint: ["bash"]
