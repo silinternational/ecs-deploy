@@ -297,3 +297,100 @@ EOF
   [ ! -z $status ]
   [ $output == $expected ]
 }
+
+@test "test parseImageName with tagonly option" {
+  TAGONLY="newtag"
+  IMAGE="ignore"
+
+  expected=$TAGONLY
+
+  run parseImageName
+
+  [ ! -z $status ]
+  [ $output == $expected ]
+}
+
+@test "test createNewTaskDefJson with multiple containers in definition and replace only tags" {
+  TAGONLY="newtag"
+  useImage=$TAGONLY
+
+  TASK_DEFINITION=$(cat <<EOF
+{
+    "taskDefinition": {
+        "status": "ACTIVE",
+        "networkMode": "bridge",
+        "family": "app-task-def",
+        "requiresAttributes": [
+            {
+                "name": "com.amazonaws.ecs.capability.ecr-auth"
+            }
+        ],
+        "volumes": [],
+        "taskDefinitionArn": "arn:aws:ecs:us-east-1:121212345678:task-definition/app-task-def:123",
+        "containerDefinitions": [
+            {
+                "environment": [
+                    {
+                        "name": "KEY",
+                        "value": "value"
+                    }
+                ],
+                "name": "API",
+                "links": [],
+                "mountPoints": [],
+                "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1487623908",
+                "essential": true,
+                "portMappings": [
+                    {
+                        "protocol": "tcp",
+                        "containerPort": 80,
+                        "hostPort": 10080
+                    }
+                ],
+                "entryPoint": [],
+                "memory": 128,
+                "command": [
+                    "/data/run.sh"
+                ],
+                "cpu": 200,
+                "volumesFrom": []
+            },
+            {
+                "environment": [
+                    {
+                        "name": "KEY",
+                        "value": "value"
+                    }
+                ],
+                "name": "cache",
+                "links": [],
+                "mountPoints": [],
+                "image": "redis:latest",
+                "essential": true,
+                "portMappings": [
+                    {
+                        "protocol": "tcp",
+                        "containerPort": 6376,
+                        "hostPort": 10376
+                    }
+                ],
+                "entryPoint": [],
+                "memory": 128,
+                "command": [
+                    "/data/run.sh"
+                ],
+                "cpu": 200,
+                "volumesFrom": []
+            }
+        ],
+        "revision": 123
+    }
+}
+EOF
+)
+  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:newtag", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:newtag", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "networkMode": "bridge" }'
+  run createNewTaskDefJson
+  echo $output
+  [ ! -z $status ]
+  [ $output == $expected ]
+}

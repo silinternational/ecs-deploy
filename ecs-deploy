@@ -14,16 +14,6 @@ TAGVAR=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 
-# Define regex for image name
-# This regex will create groups for:
-# - domain
-# - port
-# - repo
-# - image
-# - tag
-# If a group is missing it will be an empty string
-imageRegex="^([a-zA-Z0-9.\-]+):?([0-9]+)?/([a-zA-Z0-9._-]+)/?([a-zA-Z0-9._-]+)?:?([a-zA-Z0-9\._-]+)?$"
-
 function usage() {
     cat <<EOM
 ##### ecs-deploy #####
@@ -52,6 +42,7 @@ Optional arguments:
     -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
     -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
     -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
+    -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     -v | --verbose          Verbose output
 
@@ -76,8 +67,12 @@ Examples:
 
     ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
+  Update just the tag on whatever image is found in ECS Task (supports multi-container tasks):
+
+    ecs-deploy -c staging -n core-service -to 0.1.899 -i ignore
+
 Notes:
-  - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
+  - If a tag is not found in image and an ENV var is not used via -e and a tag is not provided with -to, it will default the tag to "latest"
 EOM
 
     exit 3
@@ -134,28 +129,46 @@ function assertRequiredArgumentsSet() {
 
 function parseImageName() {
 
+    # Define regex for image name
+    # This regex will create groups for:
+    # - domain
+    # - port
+    # - repo
+    # - image
+    # - tag
+    # If a group is missing it will be an empty string
+    if [[ "x$TAGONLY" == "x" ]]; then
+       imageRegex="^([a-zA-Z0-9.\-]+):?([0-9]+)?/([a-zA-Z0-9._-]+)/?([a-zA-Z0-9._-]+)?:?([a-zA-Z0-9\._-]+)?$"
+    else
+       imageRegex="^:?([a-zA-Z0-9\._-]+)?$"
+    fi
+
     if [[ $IMAGE =~ $imageRegex ]]; then
       # Define variables from matching groups
-      domain=${BASH_REMATCH[1]}
-      port=${BASH_REMATCH[2]}
-      repo=${BASH_REMATCH[3]}
-      img=${BASH_REMATCH[4]}
-      tag=${BASH_REMATCH[5]}
+      if [[ "x$TAGONLY" == "x" ]]; then
+        domain=${BASH_REMATCH[1]}
+        port=${BASH_REMATCH[2]}
+        repo=${BASH_REMATCH[3]}
+        img=${BASH_REMATCH[4]}
+        tag=${BASH_REMATCH[5]}
 
-      # Validate what we received to make sure we have the pieces needed
-      if [[ "x$domain" == "x" ]]; then
-        echo "Image name does not contain a domain or repo as expected. See usage for supported formats."
-        exit 10;
-      fi
-      if [[ "x$repo" == "x" ]]; then
-        echo "Image name is missing the actual image name. See usage for supported formats."
-        exit 11;
-      fi
+        # Validate what we received to make sure we have the pieces needed
+        if [[ "x$domain" == "x" ]]; then
+          echo "Image name does not contain a domain or repo as expected. See usage for supported formats."
+          exit 10;
+        fi
+        if [[ "x$repo" == "x" ]]; then
+          echo "Image name is missing the actual image name. See usage for supported formats."
+          exit 11;
+        fi
 
-      # When a match for image is not found, the image name was picked up by the repo group, so reset variables
-      if [[ "x$img" == "x" ]]; then
-        img=$repo
-        repo=""
+        # When a match for image is not found, the image name was picked up by the repo group, so reset variables
+        if [[ "x$img" == "x" ]]; then
+         img=$repo
+         repo=""
+        fi
+      else
+        tag=${BASH_REMATCH[1]}
       fi
 
     else
@@ -187,27 +200,33 @@ function parseImageName() {
     fi
 
     # Reassemble image name
-    if [[ ! -z ${domain+undefined-guard} ]]; then
-      useImage="$domain"
-    fi
-    if [[ ! -z ${port} ]]; then
-      useImage="$useImage:$port"
-    fi
-    if [[ ! -z ${repo+undefined-guard} ]]; then
-     if [[ ! "x$repo" == "x" ]]; then
-      useImage="$useImage/$repo"
-     fi
-    fi
-    if [[ ! -z ${img+undefined-guard} ]]; then
-      if [[ "x$useImage" == "x" ]]; then
-        useImage="$img"
-      else
-        useImage="$useImage/$img"
+    if [[ "x$TAGONLY" == "x" ]]; then
+
+      if [[ ! -z ${domain+undefined-guard} ]]; then
+        useImage="$domain"
       fi
-    fi
-    imageWithoutTag="$useImage"
-    if [[ ! -z ${tag+undefined-guard} ]]; then
-      useImage="$useImage:$tag"
+      if [[ ! -z ${port} ]]; then
+        useImage="$useImage:$port"
+      fi
+      if [[ ! -z ${repo+undefined-guard} ]]; then
+       if [[ ! "x$repo" == "x" ]]; then
+        useImage="$useImage/$repo"
+       fi
+      fi
+      if [[ ! -z ${img+undefined-guard} ]]; then
+        if [[ "x$useImage" == "x" ]]; then
+          useImage="$img"
+        else
+          useImage="$useImage/$img"
+        fi
+      fi
+      imageWithoutTag="$useImage"
+      if [[ ! -z ${tag+undefined-guard} ]]; then
+        useImage="$useImage:$tag"
+      fi
+
+    else
+      useImage="$TAGONLY"
     fi
 
     # If in test mode output $useImage
@@ -228,10 +247,16 @@ function createNewTaskDefJson() {
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
     # + Filter the def
-    DEF=$( echo "$TASK_DEFINITION" \
+    if [[ "x$TAGONLY" == "x" ]]; then
+      DEF=$( echo "$TASK_DEFINITION" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
             | jq '.taskDefinition' )
+    else
+      DEF=$( echo "$TASK_DEFINITION" \
+            | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
+            | jq '.taskDefinition' )
+    fi
 
     # Default JQ filter for new task definition
     NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions"
@@ -412,6 +437,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -e|--tag-env-var)
                 TAGVAR="$2"
+                shift
+                ;;
+            -to|--tag-only)
+                TAGONLY="$2"
                 shift
                 ;;
             --max-definitions)
