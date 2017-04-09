@@ -240,6 +240,12 @@ function getCurrentTaskDefinition() {
       fi
 
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def ${TASK_DEFINITION_ARN//\"}`
+    elif [ $TASK_DEFINITION != false ]; then
+      # We need the actual task definition
+      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def ${TASK_DEFINITION}`
+
+      # We know the task definition name (family) but not the ARN or the definition itself
+      TASK_DEFINITION_ARN=$( echo "${TASK_DEFINITION}" | jq '.taskDefinition.taskDefinitionArn' )
     fi
 }
 
