@@ -2,7 +2,7 @@
 
 # Setup default values for variables
 CLUSTER=false
-SERVICE=false
+SERVICES=false
 TASK_DEFINITION=false
 MAX_DEFINITIONS=0
 IMAGE=false
@@ -31,7 +31,7 @@ Simple script for triggering blue/green deployments on Amazon Elastic Container 
 https://github.com/silinternational/ecs-deploy
 
 One of the following is required:
-    -n | --service-name     Name of service to deploy
+    -n | --service-name     Name of service(s) to deploy
     -d | --task-definition  Name of task definition to deploy
 
 Required arguments:
@@ -78,6 +78,7 @@ Examples:
 
 Notes:
   - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
+  - Multiple serivces may be listed that share the same task.  However, separate invocations of this script should be used if there are more than one task definition.
 EOM
 
     exit 3
@@ -109,15 +110,15 @@ function assertRequiredArgumentsSet() {
               AWS_ECS="$AWS_ECS --profile $AWS_PROFILE"
     fi
 
-    if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definiton for a task"
+    if [ "${SERVICES}" == false ] && [ $TASK_DEFINITION == false ]; then
+        echo "One of SERVICES or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definiton for a task"
         exit 5
     fi
-    if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
-        echo "Only one of SERVICE or TASK DEFINITON may be specified, but you supplied both"
+    if [ "${SERVICES}" != false ] && [ $TASK_DEFINITION != false ]; then
+        echo "Only one of SERVICES or TASK DEFINITON may be specified, but you supplied both"
         exit 6
     fi
-    if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
+    if [ "${SERVICES}" != false ] && [ $CLUSTER == false ]; then
         echo "CLUSTER is required. You can pass the value using -c or --cluster"
         exit 7
     fi
@@ -217,10 +218,28 @@ function parseImageName() {
 }
 
 function getCurrentTaskDefinition() {
-    if [ $SERVICE != false ]; then
+    if [ "${SERVICES}" != false ]; then
       # Get current task definition name from service
-      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
-      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+      TASK_DEFINITION_ARNS=`$AWS_ECS describe-services --services $SERVICES --cluster $CLUSTER --query 'services[].taskDefinition' | jq '.[]'`
+
+      family_prefixes=()
+      for TASK_DEFINITION_ARN in $TASK_DEFINITION_ARNS; do
+        echo "Discovered ${TASK_DEFINITION_ARN}"
+
+        family_prefix=${TASK_DEFINITION_ARN##*:task-definition/}
+        family_prefix=${family_prefix%*:[0-9]*}
+        family_prefixes+=($family_prefix)
+      done
+
+      unique_family_prefixes=($(printf "%s\n" "${family_prefixes[@]}" | sort -u))
+
+      # Error when more than one task definition - we won't know which to update
+      if [ ${#unique_family_prefixes[@]} -gt 1 ]; then
+        echo "Expected one task definition, but found ${#unique_family_prefixes}.  Only one task definition must be shared amongst services."
+        exit 14
+      fi
+
+      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def ${TASK_DEFINITION_ARN//\"}`
     fi
 }
 
@@ -278,10 +297,10 @@ function updateService() {
     fi
 
     # Update the service
-    UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
+    UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $1 $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
 
     # Only excepts RUNNING state from services whose desired-count > 0
-    SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
+    SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $1 | jq '.services[]|.desiredCount'`
     if [ $SERVICE_DESIREDCOUNT -gt 0 ]; then
         # See if the service is able to come up again
         every=10
@@ -291,7 +310,7 @@ function updateService() {
             # Scan the list of running tasks for that service, and see if one of them is the
             # new version of the task definition
 
-            RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
+            RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$1" --desired-status RUNNING \
                 | jq -r '.taskArns[]')
 
             if [[ ! -z $RUNNING_TASKS ]] ; then
@@ -300,7 +319,7 @@ function updateService() {
                     | grep -e "RUNNING") || :
 
                 if [ "$RUNNING" ]; then
-                    echo "Service updated successfully, new task definition running.";
+                    echo "Service $1 updated successfully, new task definition running.";
 
                     if [[ $MAX_DEFINITIONS -gt 0 ]]; then
                         FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
@@ -320,7 +339,7 @@ function updateService() {
 
                     fi
 
-                    exit 0
+                    return 0
                 fi
             fi
 
@@ -383,7 +402,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 shift # past argument
                 ;;
             -n|--service-name)
-                SERVICE="$2"
+                SERVICES="$2"
                 shift # past argument
                 ;;
             -d|--task-definition)
@@ -452,12 +471,15 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     echo "New task definition: $NEW_TASKDEF";
 
     # update service if needed
-    if [ $SERVICE == false ]; then
+    if [ "${SERVICES}" == false ]; then
         echo "Task definition updated successfully"
     else
-        updateService
+        for SERVICE in $SERVICES; do
+          updateService $SERVICE
+        done
     fi
 
+    exit 0
 fi
 #############################
 # End application run logic #
