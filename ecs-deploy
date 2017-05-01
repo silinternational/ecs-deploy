@@ -12,6 +12,7 @@ TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
 TAGONLY=""
+ENABLE_ROLLBACK=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 
@@ -45,6 +46,7 @@ Optional arguments:
     -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
     -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
+    --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
     -v | --verbose          Verbose output
 
 Requirements:
@@ -363,7 +365,9 @@ function updateService() {
         if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
             # Timeout
             echo "ERROR: New task definition not running within $TIMEOUT seconds"
-            rollback
+            if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+              rollback
+            fi
             exit 1
         fi
     else
@@ -484,6 +488,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --max-definitions)
                 MAX_DEFINITIONS="$2"
                 shift
+                ;;
+            --enable-rollback)
+                ENABLE_ROLLBACK=true
                 ;;
             -v|--verbose)
                 VERBOSE=true
