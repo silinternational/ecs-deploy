@@ -398,7 +398,9 @@ function waitForGreenDeployment {
   done
 
   if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
-    rollback
+    if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+      rollback
+    fi
     exit 1
   fi
 }
