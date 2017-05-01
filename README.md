@@ -31,6 +31,7 @@ Usage
                                       Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
                                             Script will only perform deregistration if deployment succeeds.
+        --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
         -v | --verbose                Verbose output
 
     Examples:
