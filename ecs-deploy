@@ -11,6 +11,7 @@ MAX=false
 TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
+TAGONLY=""
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 
