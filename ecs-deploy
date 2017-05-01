@@ -285,7 +285,13 @@ function registerNewTaskDefinition() {
     NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
 }
 
+function rollback() {
+    echo "Rolling back to ${TASK_DEFINITION_ARN}"
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $TASK_DEFINITION_ARN > /dev/null
+}
+
 function updateService() {
+    UPDATE_SERVICE_SUCCESS="false"
     DEPLOYMENT_CONFIG=""
     if [ $MAX != false ]; then
         DEPLOYMENT_CONFIG=",maximumPercent=$MAX"
@@ -344,8 +350,8 @@ function updateService() {
                         fi
 
                     fi
-
-                    exit 0
+                    UPDATE_SERVICE_SUCCESS="true"
+                    break
                 fi
             fi
 
@@ -353,12 +359,43 @@ function updateService() {
             i=$(( $i + $every ))
         done
 
-        # Timeout
-        echo "ERROR: New task definition not running within $TIMEOUT seconds"
-        exit 1
+        if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
+            # Timeout
+            echo "ERROR: New task definition not running within $TIMEOUT seconds"
+            rollback
+            exit 1
+        fi
     else
         echo "Skipping check for running task definition, as desired-count <= 0"
     fi
+}
+
+function waitForGreenDeployment {
+  DEPLOYMENT_SUCCESS="false"
+  every=2
+  i=0
+  echo "Waiting for service deployment to complete..."
+  while [ $i -lt $TIMEOUT ]
+  do
+    NUM_DEPLOYMENTS=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq "[.services[].deployments[]] | length")
+
+    # Wait to see if more than 1 deployment stays running
+    # If the wait time has passed, we need to roll back
+    if [ $NUM_DEPLOYMENTS -eq 1 ]; then
+      echo "Service deployment successful."
+      DEPLOYMENT_SUCCESS="true"
+      # Exit the loop.
+      i=$TIMEOUT
+    else
+      sleep $every
+      i=$(( $i + $every ))
+    fi
+  done
+
+  if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
+    rollback
+    exit 1
+  fi
 }
 
 ######################################################
@@ -485,7 +522,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         echo "Task definition updated successfully"
     else
         updateService
+
+        waitForGreenDeployment
     fi
+
+    exit 0
 
 fi
 #############################
