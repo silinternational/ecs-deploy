@@ -1,16 +1,14 @@
-FROM silintl/ubuntu:14.04
-MAINTAINER Phillip Shipley <phillip_shipley@sil.org>
+FROM alpine:3.5
 
-RUN apt-get update -y \
-    && apt-get install -y \
-        curl \
-        python-setuptools \
-        jq \
-    && easy_install pip \
-    && pip install awscli
+# Install packges needed
+RUN apk --no-cache add ca-certificates curl bash jq py2-pip && \
+    pip install awscli
 
-COPY ecs-deploy /usr/local/bin/ecs-deploy
+COPY ecs-deploy /ecs-deploy
+RUN chmod a+x /ecs-deploy
 
-RUN chmod a+x /usr/local/bin/ecs-deploy
+COPY test.bats /test.bats
+COPY run-tests.sh /run-tests.sh
+RUN chmod a+x /run-tests.sh
 
-ENTRYPOINT ["/usr/local/bin/ecs-deploy"]
+ENTRYPOINT ["/ecs-deploy"]
