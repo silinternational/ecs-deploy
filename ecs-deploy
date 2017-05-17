@@ -108,7 +108,7 @@ function assertRequiredArgumentsSet() {
     fi
 
     if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definiton for a task"
+        echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
         exit 5
     fi
     if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
