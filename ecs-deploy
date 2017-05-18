@@ -4,6 +4,7 @@
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
+TASK_DEFINITION_ARN=false
 MAX_DEFINITIONS=0
 IMAGE=false
 MIN=false
@@ -37,6 +38,7 @@ Required arguments:
                                  Examples: mariadb, mariadb:latest, silintl/mariadb,
                                            silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
     --aws-instance-profile  Use the IAM role associated with this instance
+    -dn | --task-definition-arn  ARN of task definition to deploy
 
 Optional arguments:
     -D | --desired-count    The number of instantiations of the task to place and keep running in your service.
@@ -240,7 +242,9 @@ function parseImageName() {
 function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
       # Get current task definition name from service
-      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
+      if [ $TASK_DEFINITION_ARN == false ]; then
+        TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
+      fi
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
     fi
 }
@@ -456,6 +460,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -d|--task-definition)
                 TASK_DEFINITION="$2"
+                shift
+                ;;
+            -dn|--task-definition-arn)
+                TASK_DEFINITION_ARN="$2"
                 shift
                 ;;
             -i|--image)
