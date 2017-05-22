@@ -4,6 +4,7 @@
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
+TASK_DEFINITION_ARN=false
 MAX_DEFINITIONS=0
 IMAGE=false
 MIN=false
@@ -240,7 +241,9 @@ function parseImageName() {
 function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
       # Get current task definition name from service
-      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
+      if [ $TASK_DEFINITION_ARN == false ]; then
+        TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
+      fi
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
     fi
 }
@@ -456,6 +459,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -d|--task-definition)
                 TASK_DEFINITION="$2"
+                shift
+                ;;
+            -dn|--task-definition-arn)
+                TASK_DEFINITION_ARN="$2"
                 shift
                 ;;
             -i|--image)
