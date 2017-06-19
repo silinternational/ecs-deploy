@@ -245,7 +245,7 @@ setup() {
                 "environment": [
                     {
                         "name": "KEY",
-                        "value": "value"
+                        "value": "value * "
                     }
                 ],
                 "name": "API",
@@ -274,10 +274,10 @@ setup() {
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "networkMode": "bridge" }'
+  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value * " } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
-  [ $output == $expected ]
+  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
 }
 
 @test "test createNewTaskDefJson with multiple containers in definition" {
@@ -360,7 +360,7 @@ EOF
   expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:latest", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
-  [ $output == $expected ]
+  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
 }
 
 @test "test parseImageName with tagonly option" {
@@ -372,7 +372,7 @@ EOF
   run parseImageName
 
   [ ! -z $status ]
-  [ $output == $expected ]
+  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
 }
 
 @test "test createNewTaskDefJson with multiple containers in definition and replace only tags" {
@@ -457,5 +457,5 @@ EOF
   run createNewTaskDefJson
   echo $output
   [ ! -z $status ]
-  [ $output == $expected ]
+  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
 }
