@@ -39,15 +39,17 @@ Required arguments:
     --aws-instance-profile  Use the IAM role associated with this instance
 
 Optional arguments:
-    -D | --desired-count    The number of instantiations of the task to place and keep running in your service.
-    -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
-    -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
-    -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
-    -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
-    -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
-    --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
-    --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
-    -v | --verbose          Verbose output
+    -D | --desired-count      The number of instantiations of the task to place and keep running in your service.
+    -m | --min                minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
+    -M | --max                maximumPercent: The upper limit on the number of running tasks during a deployment.
+    -t | --timeout            Default is 90s. Script monitors ECS Service for new task definition to be running.
+    -e | --tag-env-var        Get image tag name from environment variable. If provided this will override value specified in image name argument.
+    -to | --tag-only          New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
+    --max-definitions         Number of Task Definition Revisions to persist before deregistering oldest revisions.
+    --enable-rollback         Rollback task definition if new version is not running before TIMEOUT
+    --deploy-task-definition  Deploy to a service by task definition
+    --sha                     SHA256 of container image, sha256 will take precedence over tag
+    -v | --verbose            Verbose output
 
 Requirements:
     aws:  AWS Command Line Interface
@@ -250,6 +252,14 @@ function getCurrentTaskDefinition() {
     fi
 }
 
+function executeDeployFromTaskDefinition() {
+  if [ $SERVICE != false ]; then
+    getDeploymentConfigs
+    UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $DEPLOY_TASK_DEFINITION $DEPLOYMENT_CONFIG`
+    waitForGreenDeployment
+  fi
+}
+
 function createNewTaskDefJson() {
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
@@ -297,8 +307,7 @@ function rollback() {
     $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $TASK_DEFINITION_ARN > /dev/null
 }
 
-function updateService() {
-    UPDATE_SERVICE_SUCCESS="false"
+function getDeploymentConfigs() {
     DEPLOYMENT_CONFIG=""
     if [ $MAX != false ]; then
         DEPLOYMENT_CONFIG=",maximumPercent=$MAX"
@@ -308,13 +317,16 @@ function updateService() {
     fi
     if [ ! -z "$DEPLOYMENT_CONFIG" ]; then
         DEPLOYMENT_CONFIG="--deployment-configuration ${DEPLOYMENT_CONFIG:1}"
-    fi
-
+    fi  
     DESIRED_COUNT=""
     if [ ! -z ${DESIRED+undefined-guard} ]; then
         DESIRED_COUNT="--desired-count $DESIRED"
     fi
+}
 
+function updateService() {
+    UPDATE_SERVICE_SUCCESS="false"
+    getDeploymentConfigs
     # Update the service
     UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
 
@@ -478,7 +490,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             -s|--sha)
                 SHA="$2"
                 shift
-                ;;            
+                ;;
+            --deploy-task-definition)
+                DEPLOY_TASK_DEFINITION="$2"
+                shift
+                ;;              
             -M|--max)
                 MAX="$2"
                 shift
@@ -517,31 +533,35 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         set -x
     fi
 
-    # Check that required arguments are provided
-    assertRequiredArgumentsSet
-
-    # Determine image name
-    parseImageName
-    echo "Using image name: $useImage"
-
-    # Get current task definition
-    getCurrentTaskDefinition
-    echo "Current task definition: $TASK_DEFINITION_ARN";
-
-    # create new task definition json
-    createNewTaskDefJson
-
-    # register new task definition
-    registerNewTaskDefinition
-    echo "New task definition: $NEW_TASKDEF";
-
-    # update service if needed
-    if [ $SERVICE == false ]; then
-        echo "Task definition updated successfully"
+    if [ -n "$DEPLOY_TASK_DEFINITION" ]; then
+      executeDeployFromTaskDefinition
     else
-        updateService
+      # Check that required arguments are provided
+      assertRequiredArgumentsSet
 
-        waitForGreenDeployment
+      # Determine image name
+      parseImageName
+      echo "Using image name: $useImage"
+
+      # Get current task definition
+      getCurrentTaskDefinition
+      echo "Current task definition: $TASK_DEFINITION_ARN";
+
+      # create new task definition json
+      createNewTaskDefJson
+
+      # register new task definition
+      registerNewTaskDefinition
+      echo "New task definition: $NEW_TASKDEF";
+
+      # update service if needed
+      if [ $SERVICE == false ]; then
+          echo "Task definition updated successfully"
+      else
+          updateService
+
+          waitForGreenDeployment
+      fi
     fi
 
     exit 0

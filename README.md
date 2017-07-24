@@ -33,6 +33,7 @@ Usage
                                             Script will only perform deregistration if deployment succeeds.
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
         --sha                         SHA256 of container image, sha256 will take precedence over tag
+        --deploy-task-definition      Deploy to a service by task definition
         -v | --verbose                Verbose output
 
     Examples:
