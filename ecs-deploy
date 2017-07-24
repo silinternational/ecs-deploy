@@ -108,7 +108,7 @@ function assertRequiredArgumentsSet() {
     fi
 
     if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
+        echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definiton for a task"
         exit 5
     fi
     if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
@@ -141,7 +141,7 @@ function parseImageName() {
     # - tag
     # If a group is missing it will be an empty string
     if [[ "x$TAGONLY" == "x" ]]; then
-       imageRegex="^([a-zA-Z0-9\.\-]+):?([0-9]+)?/([a-zA-Z0-9\._\-]+)(/[\/a-zA-Z0-9\._\-]+)?:?([a-zA-Z0-9\._\-]+)?$"
+       imageRegex="^([a-zA-Z0-9.\-]+):?([0-9]+)?/([a-zA-Z0-9._-]+)/?([a-zA-Z0-9._-]+)?:?([a-zA-Z0-9\._-]+)?$"
     else
        imageRegex="^:?([a-zA-Z0-9\._-]+)?$"
     fi
@@ -152,7 +152,7 @@ function parseImageName() {
         domain=${BASH_REMATCH[1]}
         port=${BASH_REMATCH[2]}
         repo=${BASH_REMATCH[3]}
-        img=${BASH_REMATCH[4]/#\//}
+        img=${BASH_REMATCH[4]}
         tag=${BASH_REMATCH[5]}
 
         # Validate what we received to make sure we have the pieces needed
@@ -173,6 +173,7 @@ function parseImageName() {
       else
         tag=${BASH_REMATCH[1]}
       fi
+
     else
       # check if using root level repo with format like mariadb or mariadb:latest
       rootRepoRegex="^([a-zA-Z0-9\-]+):?([a-zA-Z0-9\.\-]+)?$"
@@ -224,7 +225,11 @@ function parseImageName() {
       fi
       imageWithoutTag="$useImage"
       if [[ ! -z ${tag+undefined-guard} ]]; then
-        useImage="$useImage:$tag"
+        if [ ! -z ${SHA+undefined-guard} ]; then
+            useImage="$useImage@sha256:$SHA"
+        else
+          useImage="$useImage:$tag"
+        fi
       fi
 
     else
@@ -470,6 +475,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 MIN="$2"
                 shift
                 ;;
+            -s|--sha)
+                SHA="$2"
+                shift
+                ;;            
             -M|--max)
                 MAX="$2"
                 shift
