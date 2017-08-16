@@ -50,6 +50,18 @@ Usage
     Notes:
       - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
 
+Installation
+------------
+
+* Install and configure [aws-cli](http://docs.aws.amazon.com/cli/latest/userguide/tutorial-ec2-ubuntu.html#install-cli)
+* Install ecs-deploy:
+```
+curl https://raw.githubusercontent.com/silinternational/ecs-deploy/develop/ecs-deploy | sudo tee -a /usr/bin/ecs-deploy
+sudo chmod +x /usr/bin/ecs-deploy
+
+```
+
+
 How it works
 ------------
 
