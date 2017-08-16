@@ -54,6 +54,7 @@ Installation
 ------------
 
 * Install and configure [aws-cli](http://docs.aws.amazon.com/cli/latest/userguide/tutorial-ec2-ubuntu.html#install-cli)
+* Install [jq](https://github.com/stedolan/jq/wiki/Installation)
 * Install ecs-deploy:
 ```
 curl https://raw.githubusercontent.com/silinternational/ecs-deploy/develop/ecs-deploy | sudo tee -a /usr/bin/ecs-deploy
