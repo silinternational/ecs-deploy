@@ -11,6 +11,7 @@ MAX=false
 TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
+TASK_DEF_FILE=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
 AWS_CLI=$(which aws)
@@ -43,6 +44,7 @@ Optional arguments:
     -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
     -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
     -t | --timeout          Default is 90s. Script monitors ECS Service for new task definition to be running.
+    -f | --task-def-file    Path to the custom task definition file in your filesystem. If provided this will update and register task definition from the file instead of just upgrading existing one. Use if you want to replace something in task definition.
     -e | --tag-env-var      Get image tag name from environment variable. If provided this will override value specified in image name argument.
     -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
@@ -241,7 +243,11 @@ function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
       # Get current task definition name from service
       TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
-      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+      if [ $TASK_DEF_FILE != false ]; then
+        TASK_DEFINITION=$(cat $TASK_DEF_FILE)
+      else
+        TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+      fi
     fi
 }
 
@@ -249,15 +255,27 @@ function createNewTaskDefJson() {
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
     # + Filter the def
-    if [[ "x$TAGONLY" == "x" ]]; then
-      DEF=$( echo "$TASK_DEFINITION" \
-            | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
-            | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
-            | jq '.taskDefinition' )
+    if [ $TASK_DEF_FILE != false ]; then
+      # There is no jq filter because we get the task definition itself directly from file
+      if [[ "x$TAGONLY" == "x" ]]; then
+        DEF=$( echo "$TASK_DEFINITION" \
+              | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
+              | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" )
+      else
+        DEF=$( echo "$TASK_DEFINITION" \
+              | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" )
+      fi
     else
-      DEF=$( echo "$TASK_DEFINITION" \
-            | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
-            | jq '.taskDefinition' )
+      if [[ "x$TAGONLY" == "x" ]]; then
+        DEF=$( echo "$TASK_DEFINITION" \
+              | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
+              | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
+              | jq '.taskDefinition' )
+      else
+        DEF=$( echo "$TASK_DEFINITION" \
+              | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
+              | jq '.taskDefinition' )
+      fi
     fi
 
     # Default JQ filter for new task definition
@@ -274,7 +292,8 @@ function createNewTaskDefJson() {
     done
 
     # Build new DEF with jq filter
-    NEW_DEF=$(echo $DEF | jq "{${NEW_DEF_JQ_FILTER}}")
+    # If there is no volume in definition - insert empty list by jq
+    NEW_DEF=$(echo $DEF | jq "{${NEW_DEF_JQ_FILTER}}" | jq '(.. | select(objects | has("volumes"))).volumes //= []' )
 
     # If in test mode output $NEW_DEF
     if [ "$BASH_SOURCE" != "$0" ]; then
@@ -476,6 +495,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -D|--desired-count)
                 DESIRED="$2"
+                shift
+                ;;
+            -f|--task-def-file)
+                TASK_DEF_FILE="$2"
                 shift
                 ;;
             -e|--tag-env-var)
