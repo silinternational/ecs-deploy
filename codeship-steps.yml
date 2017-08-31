@@ -1,3 +1,0 @@
-- name: test
-  service: ecsdeploy
-  command: /run-tests.sh
