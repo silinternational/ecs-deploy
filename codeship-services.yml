@@ -1,6 +1,0 @@
-ecsdeploy:
-  build:
-    image: silintl/ecs-deploy
-    dockerfile_path: ./Dockerfile
-  entrypoint: bash
-  command: /run-tests.sh
