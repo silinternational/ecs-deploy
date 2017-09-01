@@ -244,10 +244,15 @@ function getCurrentTaskDefinition() {
       # Get current task definition name from service
       TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
       if [ $TASK_DEF_FILE != false ]; then
-        TASK_DEFINITION=$(cat $TASK_DEF_FILE)
+        TASK_DEFINITION=$(cat $TASK_DEF_FILE) || echo "Error! Task definition file not found"
       else
         TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
       fi
+
+      if [ "$TASK_DEFINITION" == "" ]
+        then exit 1
+      fi
+
     fi
 }
 
