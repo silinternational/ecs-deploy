@@ -11,6 +11,7 @@ MAX=false
 TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
+KEEP_LATEST_TASK=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
 AWS_CLI=$(which aws)
@@ -39,6 +40,7 @@ Required arguments:
     --aws-instance-profile  Use the IAM role associated with this instance
 
 Optional arguments:
+    -kt | --keep-latest-task-definition Retrive the latest task definition and redeploy instead of create new task definition
     -D | --desired-count    The number of instantiations of the task to place and keep running in your service.
     -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
     -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
@@ -73,6 +75,10 @@ Examples:
   Update just the tag on whatever image is found in ECS Task (supports multi-container tasks):
 
     ecs-deploy -c staging -n core-service -to 0.1.899 -i ignore
+
+  Keep latest task definition to redeploy
+
+    ecs-deploy -c staging -n core-service -kt service-family-name -i docker.repo.com/doorman
 
 Notes:
   - If a tag is not found in image and an ENV var is not used via -e and a tag is not provided with -to, it will default the tag to "latest"
@@ -243,6 +249,12 @@ function getCurrentTaskDefinition() {
       TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
     fi
+}
+
+function getLatestTaskDefinition() {
+  if [ $SERVICE != false ]; then
+    NEW_TASKDEF=`$AWS_ECS list-task-definitions --family-prefix $KEEP_LATEST_TASK --sort DESC --max-items 1 | jq .taskDefinitionArns[] | tr -d '\"'`
+  fi
 }
 
 function createNewTaskDefJson() {
@@ -486,6 +498,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 TAGONLY="$2"
                 shift
                 ;;
+            -kt|--keep-latest-task-definition)
+                KEEP_LATEST_TASK="$2"
+                shift
+                ;;
             --max-definitions)
                 MAX_DEFINITIONS="$2"
                 shift
@@ -513,18 +529,24 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
     # Determine image name
     parseImageName
-    echo "Using image name: $useImage"
+    echo "Using image name: $useImage";
 
-    # Get current task definition
-    getCurrentTaskDefinition
-    echo "Current task definition: $TASK_DEFINITION_ARN";
+    if [ $KEEP_LATEST_TASK == false ]; then
 
-    # create new task definition json
-    createNewTaskDefJson
+      # Get current task definition
+      getCurrentTaskDefinition
+      echo "Current task definition: $TASK_DEFINITION_ARN";
 
-    # register new task definition
-    registerNewTaskDefinition
-    echo "New task definition: $NEW_TASKDEF";
+      # create new task definition json
+      createNewTaskDefJson
+
+      # register new task definition
+      registerNewTaskDefinition
+      echo "New task definition: $NEW_TASKDEF";
+    else
+      getLatestTaskDefinition
+      echo "Current task definition: $NEW_TASKDEF";
+    fi
 
     # update service if needed
     if [ $SERVICE == false ]; then
