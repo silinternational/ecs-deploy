@@ -254,6 +254,7 @@ function getCurrentTaskDefinition() {
 function getLatestTaskDefinition() {
   if [ $SERVICE != false ]; then
     NEW_TASKDEF=`$AWS_ECS list-task-definitions --family-prefix $KEEP_LATEST_TASK --sort DESC --max-items 1 | jq .taskDefinitionArns[] | tr -d '\"'`
+    TASK_DEFINITION_ARN=$NEW_TASKDEF
   fi
 }
 
