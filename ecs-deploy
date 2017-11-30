@@ -13,6 +13,7 @@ VERBOSE=false
 TAGVAR=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
+USE_MOST_RECENT_TASK_DEFINITION=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 
@@ -47,6 +48,7 @@ Optional arguments:
     -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
+    --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
     -v | --verbose          Verbose output
 
 Requirements:
@@ -242,6 +244,16 @@ function getCurrentTaskDefinition() {
       # Get current task definition name from service
       TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+
+      # For rollbacks
+      LAST_USED_TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN
+
+      if [ $USE_MOST_RECENT_TASK_DEFINITION != false ]; then
+        # Use the most recently created TD of the family; rather than the most recently used.
+        TASK_DEFINITION_FAMILY=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN | jq -r .taskDefinition.family`
+        TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_FAMILY`
+        TASK_DEFINITION_ARN=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_FAMILY | jq -r .taskDefinition.taskDefinitionArn`
+      fi
     fi
 }
 
@@ -288,8 +300,8 @@ function registerNewTaskDefinition() {
 }
 
 function rollback() {
-    echo "Rolling back to ${TASK_DEFINITION_ARN}"
-    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $TASK_DEFINITION_ARN > /dev/null
+    echo "Rolling back to ${LAST_USED_TASK_DEFINITION_ARN}"
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $LAST_USED_TASK_DEFINITION_ARN > /dev/null
 }
 
 function updateService() {
@@ -492,6 +504,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --enable-rollback)
                 ENABLE_ROLLBACK=true
+                ;;
+            --use-latest-task-def)
+                USE_MOST_RECENT_TASK_DEFINITION=true
                 ;;
             -v|--verbose)
                 VERBOSE=true
