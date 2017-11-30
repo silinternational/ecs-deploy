@@ -32,6 +32,7 @@ Usage
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
                                             Script will only perform deregistration if deployment succeeds.
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
+        --use-latest-task-def         Will use the most recently created task definition as it's base, rather than the last used.
         -v | --verbose                Verbose output
 
     Examples:
@@ -79,7 +80,7 @@ _Naturally, enough computing resources must be available in the ECS cluster for 
 Consequently, all that is needed to deploy a new version of an application is to update the Service which is running its
 Tasks to point at a new version of the Task Definition. `ecs-deploy` uses the python `aws` utility to do this. It,
 
-  * Pulls the JSON representation of the in-use Task Definition
+  * Pulls the JSON representation of the in-use Task Definition; or the most recently created if using `--use-latest-task-def`
   * Edits it
   * Defines a new version, with the changes
   * Updates the Service to use the new version
