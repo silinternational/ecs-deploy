@@ -49,6 +49,7 @@ Optional arguments:
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
     -v | --verbose          Verbose output
+         --version          Display the version
 
 Requirements:
     aws:  AWS Command Line Interface
