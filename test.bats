@@ -281,6 +281,72 @@ EOF
   [ $output == $expected ]
 }
 
+@test "test createNewTaskDefJson with single container in definition for AWS Fargate" {
+  imageWithoutTag="121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo"
+  useImage="121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111"
+  TASK_DEFINITION=$(cat <<EOF
+{
+    "taskDefinition": {
+        "status": "ACTIVE",
+        "networkMode": "awsvpc",
+        "family": "app-task-def",
+        "requiresAttributes": [
+            {
+                "name": "com.amazonaws.ecs.capability.ecr-auth"
+            }
+        ],
+        "volumes": [],
+        "taskDefinitionArn": "arn:aws:ecs:us-east-1:121212345678:task-definition/app-task-def:123",
+        "containerDefinitions": [
+            {
+                "environment": [
+                    {
+                        "name": "KEY",
+                        "value": "value"
+                    }
+                ],
+                "name": "API",
+                "links": [],
+                "mountPoints": [],
+                "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1487623908",
+                "essential": true,
+                "portMappings": [
+                    {
+                        "protocol": "tcp",
+                        "containerPort": 80,
+                        "hostPort": 10080
+                    }
+                ],
+                "entryPoint": [],
+                "memory": 128,
+                "command": [
+                    "/data/run.sh"
+                ],
+                "cpu": 200,
+                "volumesFrom": []
+            }
+        ],
+        "revision": 123,
+        "executionRoleArn": "arn:aws:iam::121212345678:role/ecsTaskExecutionRole",
+        "compatibilities": [
+            "EC2",
+            "FARGATE"
+        ],
+        "requiresCompatibilities": [
+            "FARGATE"
+        ],
+        "cpu": "256",
+        "memory": "512"
+    }
+}
+EOF
+)
+  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "networkMode": "awsvpc", "executionRoleArn": "arn:aws:iam::121212345678:role/ecsTaskExecutionRole", "requiresCompatibilities": [ "FARGATE" ], "cpu": "256", "memory": "512" }'
+  run createNewTaskDefJson
+  [ ! -z $status ]
+  [ $output == $expected ]
+}
+
 @test "test createNewTaskDefJson with multiple containers in definition" {
   imageWithoutTag="121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo"
   useImage="121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111"
