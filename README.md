@@ -33,6 +33,7 @@ Usage
                                             Script will only perform deregistration if deployment succeeds.
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
         -v | --verbose                Verbose output
+             --version                Display the version
 
     Examples:
       Simple (Using env vars for AWS settings):

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
+VERSION="3.2.0"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -48,6 +49,7 @@ Optional arguments:
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
     -v | --verbose          Verbose output
+         --version          Display the version
 
 Requirements:
     aws:  AWS Command Line Interface
@@ -495,6 +497,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -v|--verbose)
                 VERBOSE=true
+                ;;
+            --version)
+                echo ${VERSION}
+                exit 0
                 ;;
             *)
                 usage
