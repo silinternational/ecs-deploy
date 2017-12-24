@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
+VERSION="3.2.0"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -48,6 +49,7 @@ Optional arguments:
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
     -v | --verbose          Verbose output
+         --version          Display the version
 
 Requirements:
     aws:  AWS Command Line Interface
@@ -108,11 +110,11 @@ function assertRequiredArgumentsSet() {
     fi
 
     if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
+        echo "One of SERVICE or TASK DEFINITION is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
         exit 5
     fi
     if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
-        echo "Only one of SERVICE or TASK DEFINITON may be specified, but you supplied both"
+        echo "Only one of SERVICE or TASK DEFINITION may be specified, but you supplied both"
         exit 6
     fi
     if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
@@ -261,7 +263,7 @@ function createNewTaskDefJson() {
     fi
 
     # Default JQ filter for new task definition
-    NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions"
+    NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, placementConstraints: .placementConstraints"
 
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
@@ -495,6 +497,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -v|--verbose)
                 VERBOSE=true
+                ;;
+            --version)
+                echo ${VERSION}
+                exit 0
                 ;;
             *)
                 usage
