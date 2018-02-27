@@ -10,7 +10,7 @@ AWS_ASSUME_ROLE=false
 IMAGE=false
 MIN=false
 MAX=false
-TIMEOUT=90
+TIMEOUT=600
 VERBOSE=false
 TAGVAR=false
 TAGONLY=""
@@ -460,6 +460,7 @@ function waitForGreenDeployment {
     if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
       rollback
     fi
+    >&2 echo "Error: Service deployment NOT successful within $TIMEOUT"
     exit 1
   fi
 }
