@@ -341,7 +341,7 @@ EOF
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "networkMode": "awsvpc", "executionRoleArn": "arn:aws:iam::121212345678:role/ecsTaskExecutionRole", "requiresCompatibilities": [ "FARGATE" ], "cpu": "256", "memory": "512" }'
+  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "awsvpc", "executionRoleArn": "arn:aws:iam::121212345678:role/ecsTaskExecutionRole", "requiresCompatibilities": [ "FARGATE" ], "cpu": "256", "memory": "512" }'
   run createNewTaskDefJson
   [ ! -z $status ]
   [ $output == $expected ]
