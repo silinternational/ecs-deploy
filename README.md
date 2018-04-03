@@ -136,7 +136,7 @@ this script.
 Use Environment Variable for tag name value
 -------------------------------------------
 In some cases you may want to use an environment variable for the tag name of your image.
-For instance, we use Codeship for continous integration and deployment. In their Docker
+For instance, we use Codeship for continuous integration and deployment. In their Docker
 environment they can build images and tag them with different variables, such as
 the current unix timestamp. We want to use these unique and changing values for image tags
 so that each task definition refers to a unique docker image/tag. This gives us the
