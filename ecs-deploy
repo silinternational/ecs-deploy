@@ -6,6 +6,7 @@ CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
 MAX_DEFINITIONS=0
+AWS_ASSUME_ROLE=false
 IMAGE=false
 MIN=false
 MAX=false
@@ -83,6 +84,9 @@ EOM
     exit 3
 }
 
+
+
+
 # Check requirements
 function require() {
     command -v "$1" > /dev/null 2>&1 || {
@@ -91,6 +95,25 @@ function require() {
         exit 4;
     }
 }
+
+function assumeRole() {
+
+   temp_role=$(aws sts assume-role \
+                    --role-arn "${AWS_ASSUME_ROLE}" \
+                    --role-session-name "$(date +"%s")")
+
+   export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
+   export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
+   export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
+}
+
+
+function assumeRoleClean() {
+   unset AWS_ACCESS_KEY_ID
+   unset AWS_SECRET_ACCESS_KEY
+   unset AWS_SESSION_TOKEN
+}
+
 
 # Check that all required variables/combinations are set
 function assertRequiredArgumentsSet() {
@@ -455,6 +478,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 echo "--aws-instance-profile is not yet in use"
                 AWS_IAM_ROLE=true
                 ;;
+            -a|--aws-assume-role)
+                AWS_ASSUME_ROLE="$2"
+                shift
+                ;;
             -c|--cluster)
                 CLUSTER="$2"
                 shift # past argument
@@ -521,8 +548,14 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         set -x
     fi
 
+
     # Check that required arguments are provided
     assertRequiredArgumentsSet
+
+    if [[ "$AWS_ASSUME_ROLE" != false ]]; then
+        assumeRole
+    fi
+
 
     # Determine image name
     parseImageName
@@ -547,6 +580,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
         waitForGreenDeployment
     fi
+
+    if [[ "$AWS_ASSUME_ROLE" != false ]]; then
+        assumeRoleClean
+    fi
+
 
     exit 0
 
