@@ -44,6 +44,7 @@ setup() {
   SERVICE=true
   CLUSTER=true
   IMAGE=false
+  FORCE_NEW_DEPLOYMENT=false
   run assertRequiredArgumentsSet
   [ $status -eq 8 ]
 }
