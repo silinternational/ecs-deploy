@@ -1,6 +1,14 @@
 ecs-deploy
 =================
 
+WeltN24 Adaptions to this Readme:
+--------
+
+[Released on Docker Hub under weltn24/ecs-deployer due to naming collision](https://hub.docker.com/r/weltn24/ecs-deployer/builds/)
+
+
+Original Readme:
+--------
 [ ![Codeship Status for silinternational/ecs-deploy](https://app.codeship.com/projects/393a91e0-da8d-0134-6603-1e487e818871/status?branch=master)](https://app.codeship.com/projects/203720)
 
 This script uses the Task Definition and Service entities in Amazon's ECS to instigate an automatic blue/green deployment.
