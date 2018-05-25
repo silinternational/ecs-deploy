@@ -41,7 +41,7 @@ Required arguments:
     --aws-instance-profile  Use the IAM role associated with this instance
 
 Optional arguments:
-    -a | --assume-role      ARN for AWS Role to assume for ecs-deploy operations.
+    -a | --aws-assume-role  ARN for AWS Role to assume for ecs-deploy operations.
     -D | --desired-count    The number of instantiations of the task to place and keep running in your service.
     -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
     -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
