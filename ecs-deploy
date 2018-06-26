@@ -12,6 +12,7 @@ TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
 TAGONLY=""
+CONTAINER_ENV='{"environment": []}'
 ENABLE_ROLLBACK=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
@@ -276,6 +277,8 @@ function createNewTaskDefJson() {
     # Build new DEF with jq filter
     NEW_DEF=$(echo $DEF | jq "{${NEW_DEF_JQ_FILTER}}")
 
+    NEW_DEF=$(echo $NEW_DEF | jq " del(.containerDefinitions[].environment[]) | .containerDefinitions[] += $CONTAINER_ENV")
+    
     # If in test mode output $NEW_DEF
     if [ "$BASH_SOURCE" != "$0" ]; then
       echo $NEW_DEF
@@ -412,6 +415,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     set -o pipefail
     set -u
     set -e
+
     # If no args are provided, display usage information
     if [ $# == 0 ]; then usage; fi
 
@@ -476,6 +480,12 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -D|--desired-count)
                 DESIRED="$2"
+                shift
+                ;;
+            -E|--container-variable)
+                TEMP_ENV=(${2//=/ })
+                CONTAINER_ENV=$(echo $CONTAINER_ENV | jq '.environment[.environment| length] |= . + {"name": "'${TEMP_ENV[0]}'", "value": "'${TEMP_ENV[1]}'"}')
+                echo $CONTAINER_ENV
                 shift
                 ;;
             -e|--tag-env-var)
