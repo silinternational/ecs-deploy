@@ -17,6 +17,7 @@ TAGONLY=""
 ENABLE_ROLLBACK=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
+FORCE_NEW_DEPLOYMENT=false
 
 function usage() {
     cat <<EOM
@@ -38,7 +39,7 @@ Required arguments:
                                  Format: [domain][:port][/repo][/][image][:tag]
                                  Examples: mariadb, mariadb:latest, silintl/mariadb,
                                            silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
-    --aws-instance-profile  Use the IAM role associated with this instance
+    --aws-instance-profile       Use the IAM role associated with this instance
 
 Optional arguments:
     -a | --assume-role      ARN for AWS Role to assume for ecs-deploy operations.
@@ -50,6 +51,7 @@ Optional arguments:
     -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
+    --force-new-deployment  Force a new deployment of the service. Default is false.
     -v | --verbose          Verbose output
          --version          Display the version
 
@@ -145,7 +147,7 @@ function assertRequiredArgumentsSet() {
         echo "CLUSTER is required. You can pass the value using -c or --cluster"
         exit 7
     fi
-    if [ $IMAGE == false ]; then
+    if [ $IMAGE == false ] && [ $FORCE_NEW_DEPLOYMENT == false ]; then
         echo "IMAGE is required. You can pass the value using -i or --image"
         exit 8
     fi
@@ -326,6 +328,11 @@ function registerNewTaskDefinition() {
 function rollback() {
     echo "Rolling back to ${TASK_DEFINITION_ARN}"
     $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $TASK_DEFINITION_ARN > /dev/null
+}
+
+function updateServiceForceNewDeployment() {
+    echo 'Force a new deployment of the service'
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment > /dev/null
 }
 
 function updateService() {
@@ -533,6 +540,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --enable-rollback)
                 ENABLE_ROLLBACK=true
                 ;;
+            --force-new-deployment)
+                FORCE_NEW_DEPLOYMENT=true
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 ;;
@@ -552,7 +562,6 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         set -x
     fi
 
-
     # Check that required arguments are provided
     assertRequiredArgumentsSet
 
@@ -560,6 +569,12 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         assumeRole
     fi
 
+    # Not required creation of new a task definition
+    if [ $FORCE_NEW_DEPLOYMENT == true ]; then
+        updateServiceForceNewDeployment
+        waitForGreenDeployment
+        exit 0
+    fi
 
     # Determine image name
     parseImageName
@@ -588,7 +603,6 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     if [[ "$AWS_ASSUME_ROLE" != false ]]; then
         assumeRoleClean
     fi
-
 
     exit 0
 
