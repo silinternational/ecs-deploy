@@ -312,11 +312,11 @@ function createNewTaskDefJson() {
     fi
 
     # Build new DEF with jq filter
-    NEW_DEF=$(echo $DEF | jq "{${NEW_DEF_JQ_FILTER}}")
+    NEW_DEF=$(echo "$DEF" | jq "{${NEW_DEF_JQ_FILTER}}")
 
     # If in test mode output $NEW_DEF
     if [ "$BASH_SOURCE" != "$0" ]; then
-      echo $NEW_DEF
+      echo "$NEW_DEF"
     fi
 }
 
