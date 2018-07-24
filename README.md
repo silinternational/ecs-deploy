@@ -33,6 +33,7 @@ Usage
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
                                             Script will only perform deregistration if deployment succeeds.
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
+        --skip-deployments-check      Skip deployments check for services that takes to long to drain old tasks
         -v | --verbose                Verbose output
              --version                Display the version
 

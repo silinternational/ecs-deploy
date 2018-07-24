@@ -50,6 +50,7 @@ Optional arguments:
     -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
+    --skip-deployments-check  Skip deployments check for services that takes to long to drain old tasks
     -v | --verbose          Verbose output
          --version          Display the version
 
@@ -530,6 +531,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --enable-rollback)
                 ENABLE_ROLLBACK=true
                 ;;
+            --skip-deployments-check)
+                SKIP_DEPLOYMENTS_CHECK=true
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 ;;
@@ -579,7 +583,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     else
         updateService
 
-        waitForGreenDeployment
+        if [[ "$SKIP_DEPLOYMENTS_CHECK" != true ]]; then
+          waitForGreenDeployment
+        fi
     fi
 
     if [[ "$AWS_ASSUME_ROLE" != false ]]; then
