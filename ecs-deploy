@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
+VERSION="3.4.0"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
 MAX_DEFINITIONS=0
+AWS_ASSUME_ROLE=false
 IMAGE=false
 MIN=false
 MAX=false
@@ -39,6 +41,7 @@ Required arguments:
     --aws-instance-profile  Use the IAM role associated with this instance
 
 Optional arguments:
+    -a | --assume-role      ARN for AWS Role to assume for ecs-deploy operations.
     -D | --desired-count    The number of instantiations of the task to place and keep running in your service.
     -m | --min              minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
     -M | --max              maximumPercent: The upper limit on the number of running tasks during a deployment.
@@ -48,6 +51,7 @@ Optional arguments:
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
     -v | --verbose          Verbose output
+         --version          Display the version
 
 Requirements:
     aws:  AWS Command Line Interface
@@ -81,6 +85,9 @@ EOM
     exit 3
 }
 
+
+
+
 # Check requirements
 function require() {
     command -v "$1" > /dev/null 2>&1 || {
@@ -89,6 +96,25 @@ function require() {
         exit 4;
     }
 }
+
+function assumeRole() {
+
+   temp_role=$(aws sts assume-role \
+                    --role-arn "${AWS_ASSUME_ROLE}" \
+                    --role-session-name "$(date +"%s")")
+
+   export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
+   export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
+   export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
+}
+
+
+function assumeRoleClean() {
+   unset AWS_ACCESS_KEY_ID
+   unset AWS_SECRET_ACCESS_KEY
+   unset AWS_SESSION_TOKEN
+}
+
 
 # Check that all required variables/combinations are set
 function assertRequiredArgumentsSet() {
@@ -108,11 +134,11 @@ function assertRequiredArgumentsSet() {
     fi
 
     if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITON is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
+        echo "One of SERVICE or TASK DEFINITION is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
         exit 5
     fi
     if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
-        echo "Only one of SERVICE or TASK DEFINITON may be specified, but you supplied both"
+        echo "Only one of SERVICE or TASK DEFINITION may be specified, but you supplied both"
         exit 6
     fi
     if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
@@ -261,7 +287,7 @@ function createNewTaskDefJson() {
     fi
 
     # Default JQ filter for new task definition
-    NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions"
+    NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, placementConstraints: .placementConstraints"
 
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
@@ -272,6 +298,13 @@ function createNewTaskDefJson() {
         NEW_DEF_JQ_FILTER="${NEW_DEF_JQ_FILTER}, ${i}: .${i}"
       fi
     done
+
+    # Updated jq filters for AWS Fargate
+    REQUIRES_COMPATIBILITIES=$(echo "${DEF}" | jq -r '. | select(.requiresCompatibilities != null) | .requiresCompatibilities[]')
+    if [[ "${REQUIRES_COMPATIBILITIES}" == 'FARGATE' ]]; then
+      FARGATE_JQ_FILTER='executionRoleArn: .executionRoleArn, requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory'
+      NEW_DEF_JQ_FILTER="${NEW_DEF_JQ_FILTER}, ${FARGATE_JQ_FILTER}"
+    fi
 
     # Build new DEF with jq filter
     NEW_DEF=$(echo $DEF | jq "{${NEW_DEF_JQ_FILTER}}")
@@ -446,6 +479,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 echo "--aws-instance-profile is not yet in use"
                 AWS_IAM_ROLE=true
                 ;;
+            -a|--aws-assume-role)
+                AWS_ASSUME_ROLE="$2"
+                shift
+                ;;
             -c|--cluster)
                 CLUSTER="$2"
                 shift # past argument
@@ -496,6 +533,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             -v|--verbose)
                 VERBOSE=true
                 ;;
+            --version)
+                echo ${VERSION}
+                exit 0
+                ;;
             *)
                 usage
                 exit 2
@@ -508,8 +549,14 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         set -x
     fi
 
+
     # Check that required arguments are provided
     assertRequiredArgumentsSet
+
+    if [[ "$AWS_ASSUME_ROLE" != false ]]; then
+        assumeRole
+    fi
+
 
     # Determine image name
     parseImageName
@@ -534,6 +581,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
         waitForGreenDeployment
     fi
+
+    if [[ "$AWS_ASSUME_ROLE" != false ]]; then
+        assumeRoleClean
+    fi
+
 
     exit 0
 

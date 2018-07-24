@@ -22,6 +22,7 @@ Usage
                                                 silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
+        -a | --assume-role            ARN for AWS Role to assume for ecs-deploy operations.
         -D | --desired-count          The number of instantiations of the task to place and keep running in your service.
         -m | --min                    minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
         -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
@@ -33,6 +34,7 @@ Usage
                                             Script will only perform deregistration if deployment succeeds.
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
         -v | --verbose                Verbose output
+             --version                Display the version
 
     Examples:
       Simple (Using env vars for AWS settings):
@@ -135,7 +137,7 @@ this script.
 Use Environment Variable for tag name value
 -------------------------------------------
 In some cases you may want to use an environment variable for the tag name of your image.
-For instance, we use Codeship for continous integration and deployment. In their Docker
+For instance, we use Codeship for continuous integration and deployment. In their Docker
 environment they can build images and tag them with different variables, such as
 the current unix timestamp. We want to use these unique and changing values for image tags
 so that each task definition refers to a unique docker image/tag. This gives us the
