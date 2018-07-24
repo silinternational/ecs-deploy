@@ -59,7 +59,7 @@ Installation
 * Install [jq](https://github.com/stedolan/jq/wiki/Installation)
 * Install ecs-deploy:
 ```
-curl https://raw.githubusercontent.com/silinternational/ecs-deploy/master/ecs-deploy | sudo tee -a /usr/bin/ecs-deploy
+curl https://raw.githubusercontent.com/silinternational/ecs-deploy/master/ecs-deploy | sudo tee /usr/bin/ecs-deploy
 sudo chmod +x /usr/bin/ecs-deploy
 
 ```
