@@ -19,6 +19,7 @@ AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
+RUN_TASK=false
 
 function usage() {
     cat <<EOM
@@ -54,6 +55,7 @@ Optional arguments:
     --enable-rollback            Rollback task definition if new version is not running before TIMEOUT
     --force-new-deployment       Force a new deployment of the service. Default is false.
     --skip-deployments-check     Skip deployments check for services that takes to long to drain old tasks
+    --run-task                   Run created task now. If you set this, service-name are not needed.
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -449,6 +451,11 @@ function waitForGreenDeployment {
   fi
 }
 
+function runTask {
+  echo "Run task: $NEW_TASKDEF";
+  $AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF > /dev/null
+}
+
 ######################################################
 # When not being tested, run application as expected #
 ######################################################
@@ -548,6 +555,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --skip-deployments-check)
                 SKIP_DEPLOYMENTS_CHECK=true
                 ;;
+            --run-task)
+                RUN_TASK=true
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 ;;
@@ -598,6 +608,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
     # update service if needed
     if [ $SERVICE == false ]; then
+        if [ $RUN_TASK == true ]; then
+            runTask
+        fi
         echo "Task definition updated successfully"
     else
         updateService

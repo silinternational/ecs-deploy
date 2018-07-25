@@ -35,6 +35,7 @@ Usage
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
         --force-new-deployment        Force a new deployment of the service. Default is false.
         --skip-deployments-check      Skip deployments check for services that takes to long to drain old tasks
+        --run-task                    Run created task now. If you set this, service-name are not needed.
         -v | --verbose                Verbose output
              --version                Display the version
 
