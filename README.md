@@ -8,6 +8,10 @@ This script uses the Task Definition and Service entities in Amazon's ECS to ins
 Usage
 -----
 
+    One of the following is required:
+        -n | --service-name     Name of service to deploy
+        -d | --task-definition  Name of task definition to deploy
+
     Required arguments:
         -k | --aws-access-key         AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
         -s | --aws-secret-key         AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
@@ -22,12 +26,13 @@ Usage
                                                 silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
-        -a | --assume-role            ARN for AWS Role to assume for ecs-deploy operations.
+        -a | --aws-assume-role        ARN for AWS Role to assume for ecs-deploy operations.
         -D | --desired-count          The number of instantiations of the task to place and keep running in your service.
         -m | --min                    minumumHealthyPercent: The lower limit on the number of running tasks during a deployment. (default: 100)
         -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
         -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var            Get image tag name from environment variable. If provided this will override value specified in image name argument.
+        -to | --tag-only              New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
         --max-definitions             Number of Task Definition Revisions to persist before deregistering oldest revisions.
                                       Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
@@ -39,8 +44,12 @@ Usage
         -v | --verbose                Verbose output
              --version                Display the version
 
+    Requirements:
+        aws:  AWS Command Line Interface
+        jq:   Command-line JSON processor
+
     Examples:
-      Simple (Using env vars for AWS settings):
+      Simple deployment of a service (Using env vars for AWS settings):
 
         ecs-deploy -c production1 -n doorman-service -i docker.repo.com/doorman:latest
 
@@ -48,9 +57,17 @@ Usage
 
         ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -D 2 -e CI_TIMESTAMP -v
 
-        Using profiles (for STS delegated credentials, for instance):
+      Updating a task definition with a new image:
 
-        ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -d open-door-task -i docker.repo.com/doorman:17
+
+      Using profiles (for STS delegated credentials, for instance):
+
+        ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+
+      Update just the tag on whatever image is found in ECS Task (supports multi-container tasks):
+
+        ecs-deploy -c staging -n core-service -to 0.1.899 -i ignore
 
     Notes:
       - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
