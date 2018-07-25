@@ -33,6 +33,9 @@ Usage
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
                                             Script will only perform deregistration if deployment succeeds.
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
+        --force-new-deployment        Force a new deployment of the service. Default is false.
+        --skip-deployments-check      Skip deployments check for services that take too long to drain old tasks
+        --run-task                    Run created task now. If you set this, service-name are not needed.
         -v | --verbose                Verbose output
              --version                Display the version
 
@@ -59,7 +62,7 @@ Installation
 * Install [jq](https://github.com/stedolan/jq/wiki/Installation)
 * Install ecs-deploy:
 ```
-curl https://raw.githubusercontent.com/silinternational/ecs-deploy/master/ecs-deploy | sudo tee -a /usr/bin/ecs-deploy
+curl https://raw.githubusercontent.com/silinternational/ecs-deploy/master/ecs-deploy | sudo tee /usr/bin/ecs-deploy
 sudo chmod +x /usr/bin/ecs-deploy
 
 ```
