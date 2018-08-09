@@ -564,6 +564,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --use-latest-task-def)
                 USE_MOST_RECENT_TASK_DEFINITION=true
+                ;;
             --force-new-deployment)
                 FORCE_NEW_DEPLOYMENT=true
                 ;;
