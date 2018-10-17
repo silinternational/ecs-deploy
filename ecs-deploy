@@ -201,7 +201,7 @@ function parseImageName() {
       fi
     else
       # check if using root level repo with format like mariadb or mariadb:latest
-      rootRepoRegex="^([a-zA-Z0-9\-]+):?([a-zA-Z0-9\.\-]+)?$"
+      rootRepoRegex="^([a-zA-Z0-9\-]+):?([a-zA-Z0-9\.\-_]+)?$"
       if [[ $IMAGE =~ $rootRepoRegex ]]; then
         img=${BASH_REMATCH[1]}
         if [[ "x$img" == "x" ]]; then
