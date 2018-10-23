@@ -23,6 +23,7 @@ SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
 LAUNCH_TYPE=""
 NETWORK_CONFIGURATION=""
+MIMIC_SERVICE_NETWORK=""
 
 function usage() {
     cat <<EOM
@@ -60,8 +61,9 @@ Optional arguments:
     --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
     --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
     --run-task                   Run created task now. If you set this, service-name are not needed.
-    --launch-type                The network configuration to use for --run-task
+    --launch-type                The launch type to use for --run-task
     --network-configuration      The network configuration to use for --run-task
+    --mimic-service-network      Use the networkConfiguration for the supplied service when running task with --run-task
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -475,10 +477,16 @@ function runTask {
   if [ ! -z $LAUNCH_TYPE ]; then
     LAUNCH_PARAMS="--launch-type $LAUNCH_TYPE"
   fi
+
   NETWORK_PARAMS=""
-  if [ ! -z $NETWORK_CONFIGURATION ]; then
+  if [ ! -z $MIMIC_SERVICE_NETWORK ]; then
+    # Pull network params from service, and use those
+    SERVICE_NETWORK_PARAMS=`aws ecs describe-services --services $MIMIC_SERVICE_NETWORK --cluster $CLUSTER  | jq '.services[0].networkConfiguration' | tr -d '\n '`
+    NETWORK_PARAMS="--network-configuration $SERVICE_NETWORK_PARAMS"
+  elif [ ! -z $NETWORK_CONFIGURATION ]; then
     NETWORK_PARAMS="--network-configuration $NETWORK_CONFIGURATION"
   fi
+
   $AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF $LAUNCH_PARAMS $NETWORK_PARAMS > /dev/null
 }
 
@@ -593,6 +601,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --network-configuration)
                 NETWORK_CONFIGURATION="$2"
+                shift
+                ;;
+            --mimic-service-network)
+                MIMIC_SERVICE_NETWORK="$2"
                 shift
                 ;;
             -v|--verbose)
