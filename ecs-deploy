@@ -21,6 +21,8 @@ AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
+LAUNCH_TYPE=""
+NETWORK_CONFIGURATION=""
 
 function usage() {
     cat <<EOM
@@ -58,6 +60,8 @@ Optional arguments:
     --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
     --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
     --run-task                   Run created task now. If you set this, service-name are not needed.
+    --launch-type                The network configuration to use for --run-task
+    --network-configuration      The network configuration to use for --run-task
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -466,7 +470,16 @@ function waitForGreenDeployment {
 
 function runTask {
   echo "Run task: $NEW_TASKDEF";
-  $AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF > /dev/null
+
+  LAUNCH_PARAMS=""
+  if [ ! -z $LAUNCH_TYPE ]; then
+    LAUNCH_PARAMS="--launch-type $LAUNCH_TYPE"
+  fi
+  NETWORK_PARAMS=""
+  if [ ! -z $NETWORK_CONFIGURATION ]; then
+    NETWORK_PARAMS="--network-configuration $NETWORK_CONFIGURATION"
+  fi
+  $AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF $LAUNCH_PARAMS $NETWORK_PARAMS > /dev/null
 }
 
 ######################################################
@@ -573,6 +586,14 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --run-task)
                 RUN_TASK=true
+                ;;
+            --launch-type)
+                LAUNCH_TYPE="$2"
+                shift
+                ;;
+            --network-configuration)
+                NETWORK_CONFIGURATION="$2"
+                shift
                 ;;
             -v|--verbose)
                 VERBOSE=true
