@@ -20,6 +20,7 @@ AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
+PRIVATE_REGISTRY=false
 RUN_TASK=false
 
 function usage() {
@@ -57,6 +58,7 @@ Optional arguments:
     --force-new-deployment       Force a new deployment of the service. Default is false.
     --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
     --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
+    --private-registry           Adds executionRoleArn from previous task definition if private repository authentication is required.
     --run-task                   Run created task now. If you set this, service-name are not needed.
     -v | --verbose               Verbose output
          --version               Display the version
@@ -314,6 +316,9 @@ function createNewTaskDefJson() {
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
     CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints)
+    if [[ $PRIVATE_REGISTRY == true ]]; then
+      CONDITIONAL_OPTIONS+=(executionRoleArn)
+    fi
     for i in "${CONDITIONAL_OPTIONS[@]}"; do
       re=".*${i}.*"
       if [[ "$DEF" =~ $re ]]; then
@@ -570,6 +575,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --skip-deployments-check)
                 SKIP_DEPLOYMENTS_CHECK=true
+                ;;
+            --private-registry)
+                PRIVATE_REGISTRY=true
                 ;;
             --run-task)
                 RUN_TASK=true
