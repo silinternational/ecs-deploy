@@ -256,7 +256,6 @@ function parseImageName() {
           useImage="$useImage/$img"
         fi
       fi
-      imageWithoutTag="$useImage"
       if [[ ! -z ${tag+undefined-guard} ]]; then
         useImage="$useImage:$tag"
       fi
@@ -297,10 +296,12 @@ function createNewTaskDefJson() {
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
     # + Filter the def
+
+    PREVIOUS_IMAGE=$(echo "$TASK_DEFINITION" | jq -r '.taskDefinition.containerDefinitions[0].image')
+
     if [[ "x$TAGONLY" == "x" ]]; then
       DEF=$( echo "$TASK_DEFINITION" \
-            | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
-            | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
+            | sed -e "s|\"image\": *\"${PREVIOUS_IMAGE}\"|\"image\": \"${useImage}\"|g" \
             | jq '.taskDefinition' )
     else
       DEF=$( echo "$TASK_DEFINITION" \
