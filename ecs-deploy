@@ -309,7 +309,7 @@ function createNewTaskDefJson() {
     fi
 
     # Default JQ filter for new task definition
-    NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, placementConstraints: .placementConstraints"
+    NEW_DEF_JQ_FILTER="executionRoleArn: .executionRoleArn, family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, placementConstraints: .placementConstraints"
 
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
@@ -324,7 +324,7 @@ function createNewTaskDefJson() {
     # Updated jq filters for AWS Fargate
     REQUIRES_COMPATIBILITIES=$(echo "${DEF}" | jq -r '. | select(.requiresCompatibilities != null) | .requiresCompatibilities[]')
     if [[ "${REQUIRES_COMPATIBILITIES}" == 'FARGATE' ]]; then
-      FARGATE_JQ_FILTER='executionRoleArn: .executionRoleArn, requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory'
+      FARGATE_JQ_FILTER='requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory'
       NEW_DEF_JQ_FILTER="${NEW_DEF_JQ_FILTER}, ${FARGATE_JQ_FILTER}"
     fi
 
