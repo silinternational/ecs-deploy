@@ -250,7 +250,7 @@ function parseImageName() {
        fi
       fi
       if [[ ! -z ${img+undefined-guard} ]]; then
-        if [[ "x$useImage" == "x" ]]; then
+        if [[ "x${useImage+undefined-guard}" == "x" ]]; then
           useImage="$img"
         else
           useImage="$useImage/$img"
