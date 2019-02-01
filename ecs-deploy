@@ -357,7 +357,7 @@ function updateService() {
             # Scan the list of running tasks for that service, and see if one of them is the
             # new version of the task definition
 
-            RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
+            RUNNING_TASKS=$($AWS_ECS list-tasks --debug --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
                 | jq -r '.taskArns[]')
 
             if [[ ! -z $RUNNING_TASKS ]] ; then
