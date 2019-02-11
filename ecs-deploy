@@ -373,7 +373,7 @@ function waitForGreenDeployment {
   echo "Waiting for service deployment to complete..."
   while [ $i -lt $TIMEOUT ]
   do
-    NEW_DEPLOYMENT=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq "[.services[].deployments[] | select(.taskDefinition == \"$NEW_TASKDEF\")")
+    NEW_DEPLOYMENT=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq ".services[].deployments[] | select(.taskDefinition == \"$NEW_TASKDEF\")")
     
     # if this is empty, it means the new (expected) deploy hasnt picked up yet
     if [ -z "$NEW_DEPLOYMENT" ]; then
