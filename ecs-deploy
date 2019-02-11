@@ -385,7 +385,8 @@ function waitForGreenDeployment {
     COUNT_DESIRED=$(echo $NEW_DEPLOYMENT | jq -r '.desiredCount')
     COUNT_LAUNCHED=$(echo $NEW_DEPLOYMENT | jq -r '.runningCount')
 
-    # Wait to see if more than 1 deployment stays running
+    # Compare counts of launched new containers vs. requested
+    # and continue when all new services are launched.
     # If the wait time has passed, we need to roll back
     if [ "$COUNT_DESIRED" == "$COUNT_LAUNCHED" ]; then
       echo "Service deployment successful."
