@@ -361,7 +361,7 @@ function updateService() {
                 | jq -r '.taskArns[]')
 
             if [[ ! -z $RUNNING_TASKS ]] ; then                
-                readarray -td, RUNNING_TASKS_ARRAY <<<"$TST_ARRAY"; declare -p RUNNING_TASKS_ARRAY;
+                readarray -td, RUNNING_TASKS_ARRAY <<<"$RUNNING_TASKS"; declare -p RUNNING_TASKS_ARRAY;
                 COUNT_RUNNING_TASKS="${#RUNNING_TASKS_ARRAY[@]}"
                 
                 while [$COUNT_RUNNING_TASKS -gt 0]; do
