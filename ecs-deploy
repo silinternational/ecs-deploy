@@ -380,10 +380,10 @@ function waitForGreenDeployment {
       sleep $every
       i=$(( $i + $every ))
       continue
-    done
+    fi
     
     COUNT_DESIRED=$(echo $NEW_DEPLOYMENT | jq -r '.desiredCount')
-    COUNT_LAUNCHED =$(echo $NEW_DEPLOYMENT | jq -r '.runningCount')
+    COUNT_LAUNCHED=$(echo $NEW_DEPLOYMENT | jq -r '.runningCount')
 
     # Wait to see if more than 1 deployment stays running
     # If the wait time has passed, we need to roll back
