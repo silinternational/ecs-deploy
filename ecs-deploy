@@ -357,13 +357,30 @@ function updateService() {
             # Scan the list of running tasks for that service, and see if one of them is the
             # new version of the task definition
 
-            RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
+            RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER" --desired-status RUNNING \
                 | jq -r '.taskArns[]')
 
-            if [[ ! -z $RUNNING_TASKS ]] ; then
-                RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
+            if [[ ! -z $RUNNING_TASKS ]] ; then                
+                readarray -td, RUNNING_TASKS_ARRAY <<<"$TST_ARRAY"; declare -p RUNNING_TASKS_ARRAY;
+                COUNT_RUNNING_TASKS="${#RUNNING_TASKS_ARRAY[@]}"
+                
+                while [$COUNT_RUNNING_TASKS -gt 0]; do
+                  COUNT_BATCH_RECORDS = 50
+                  [[ $COUNT_RUNNING_TASKS -lt 50 ]] && COUNT_BATCH_RECORDS=$COUNT_RUNNING_TASKS
+                  
+                  RUNNING_TASKS_BATCH=("${RUNNING_TASKS_ARRAY[@]:0:$COUNT_BATCH_RECORDS}")
+                                    
+                  LOOP_RUNNING_TASK=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks ${RUNNING_TASKS_BATCH[@]} \
                     | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
                     | grep -e "RUNNING") || :
+                    
+                  if [ "$LOOP_RUNNING_TASK" ]; then
+                    RUNNING = "$LOOP_RUNNING_TASK"
+                  done
+                    
+                  RUNNING_TASKS_ARRAY=(${RUNNING_TASKS_ARRAY[@]:$COUNT_BATCH_RECORDS})
+                  COUNT_RUNNING_TASKS=$(($COUNT_RUNNING_TASKS-$COUNT_BATCH_RECORDS))
+                done            
 
                 if [ "$RUNNING" ]; then
                     echo "Service updated successfully, new task definition running.";
