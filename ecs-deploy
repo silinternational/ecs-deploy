@@ -365,7 +365,7 @@ function updateService() {
                 COUNT_RUNNING_TASKS="${#RUNNING_TASKS_ARRAY[@]}"
                 
                 while [$COUNT_RUNNING_TASKS -gt 0]; do
-                  COUNT_BATCH_RECORDS = 50
+                  COUNT_BATCH_RECORDS=50
                   [[ $COUNT_RUNNING_TASKS -lt 50 ]] && COUNT_BATCH_RECORDS=$COUNT_RUNNING_TASKS
                   
                   RUNNING_TASKS_BATCH=("${RUNNING_TASKS_ARRAY[@]:0:$COUNT_BATCH_RECORDS}")
@@ -375,7 +375,7 @@ function updateService() {
                     | grep -e "RUNNING") || :
                     
                   if [ "$LOOP_RUNNING_TASK" ]; then
-                    RUNNING = "$LOOP_RUNNING_TASK"
+                    RUNNING="$LOOP_RUNNING_TASK"
                   done
                     
                   RUNNING_TASKS_ARRAY=(${RUNNING_TASKS_ARRAY[@]:$COUNT_BATCH_RECORDS})
