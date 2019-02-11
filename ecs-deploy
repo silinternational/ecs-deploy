@@ -376,59 +376,36 @@ function updateService() {
     # Only excepts RUNNING state from services whose desired-count > 0
     SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
     if [ $SERVICE_DESIREDCOUNT -gt 0 ]; then
-        # See if the service is able to come up again
-        every=10
-        i=0
-        while [ $i -lt $TIMEOUT ]
-        do
-            # Scan the list of running tasks for that service, and see if one of them is the
-            # new version of the task definition
+      if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+          FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
+          FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
+          TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+          NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
+          if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
+              LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
+              for i in $(seq 0 $LAST_OUTDATED_INDEX); do
+                  OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
 
-            RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
-                | jq -r '.taskArns[]')
+                  echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
 
-            if [[ ! -z $RUNNING_TASKS ]] ; then
-                RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
-                    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-                    | grep -e "RUNNING") || :
+                $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
+              done
+          fi
 
-                if [ "$RUNNING" ]; then
-                    echo "Service updated successfully, new task definition running.";
-
-                    if [[ $MAX_DEFINITIONS -gt 0 ]]; then
-                        FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
-                        FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
-                        TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
-                        NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
-                        if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
-                            LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
-                            for i in $(seq 0 $LAST_OUTDATED_INDEX); do
-                                OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
-
-                                echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
-
-                              $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
-                            done
-                        fi
-
-                    fi
-                    UPDATE_SERVICE_SUCCESS="true"
-                    break
-                fi
-            fi
-
-            sleep $every
-            i=$(( $i + $every ))
-        done
-
-        if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
-            # Timeout
-            echo "ERROR: New task definition not running within $TIMEOUT seconds"
-            if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-              rollback
-            fi
-            exit 1
+          fi
+          UPDATE_SERVICE_SUCCESS="true"
+          break
         fi
+      fi
+      
+      if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
+          # Timeout
+          echo "ERROR: New task definition not running within $TIMEOUT seconds"
+          if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+            rollback
+          fi
+          exit 1
+      fi
     else
         echo "Skipping check for running task definition, as desired-count <= 0"
     fi
@@ -441,11 +418,24 @@ function waitForGreenDeployment {
   echo "Waiting for service deployment to complete..."
   while [ $i -lt $TIMEOUT ]
   do
-    NUM_DEPLOYMENTS=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq "[.services[].deployments[]] | length")
+    DEPLOYMENTS=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER)
+    NEW_DEPLOYMENT=$(echo $DEPLOYMENTS | jq ".services[].deployments[] | select(.taskDefinition == \"$NEW_TASKDEF\")")
+    DEPLOYMENTS_COUNT=$(echo $DEPLOYMENTS | jq ".services[].deployments | length")
+    
+    # if this is empty, it means the new (expected) deploy hasnt picked up yet
+    if [ -z "$NEW_DEPLOYMENT" ]; then
+      sleep $every
+      i=$(( $i + $every ))
+      continue
+    fi
+    
+    COUNT_DESIRED=$(echo $NEW_DEPLOYMENT | jq -r '.desiredCount')
+    COUNT_LAUNCHED=$(echo $NEW_DEPLOYMENT | jq -r '.runningCount')
 
-    # Wait to see if more than 1 deployment stays running
+    # Compare counts of launched new containers vs. requested
+    # and continue when all new services are launched.
     # If the wait time has passed, we need to roll back
-    if [ $NUM_DEPLOYMENTS -eq 1 ]; then
+    if [ "$COUNT_DESIRED" == "$COUNT_LAUNCHED" ] && [ $DEPLOYMENTS_COUNT -eq 1 ]; then
       echo "Service deployment successful."
       DEPLOYMENT_SUCCESS="true"
       # Exit the loop.
