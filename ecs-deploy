@@ -323,7 +323,7 @@ function createNewTaskDefJson() {
 
     # Updated jq filters for AWS Fargate
     REQUIRES_COMPATIBILITIES=$(echo "${DEF}" | jq -r '. | select(.requiresCompatibilities != null) | .requiresCompatibilities[]')
-    if [[ "${REQUIRES_COMPATIBILITIES}" == 'FARGATE' ]]; then
+    if `echo ${REQUIRES_COMPATIBILITIES[@]} | grep -q "FARGATE"`; then
       FARGATE_JQ_FILTER='executionRoleArn: .executionRoleArn, requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory'
       NEW_DEF_JQ_FILTER="${NEW_DEF_JQ_FILTER}, ${FARGATE_JQ_FILTER}"
     fi
