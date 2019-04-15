@@ -55,7 +55,7 @@ Optional arguments:
     --max-definitions            Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback            Rollback task definition if new version is not running before TIMEOUT
     --force-new-deployment       Force a new deployment of the service. Default is false.
-    --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
+    --use-latest-task-def        Will use the most recently created task definition as it's base, rather than the last used.
     --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
     --run-task                   Run created task now. If you set this, service-name are not needed.
     -v | --verbose               Verbose output
@@ -313,7 +313,7 @@ function createNewTaskDefJson() {
 
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
-    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints)
+    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints executionRoleArn)
     for i in "${CONDITIONAL_OPTIONS[@]}"; do
       re=".*${i}.*"
       if [[ "$DEF" =~ $re ]]; then
