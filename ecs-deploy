@@ -298,13 +298,17 @@ function createNewTaskDefJson() {
     # + Update definition to use new image name
     # + Filter the def
     if [[ "x$TAGONLY" == "x" ]]; then
+      imageTag=${useImage/${imageWithoutTag}:/''} #cut string to get tag only
       DEF=$( echo "$TASK_DEFINITION" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
+            | sed -e "s|\"awslogs-stream-prefix\": \".*\"|\"awslogs-stream-prefix\": \"${imageTag}\"|g" \
             | jq '.taskDefinition' )
     else
+      imageTag=$TAGONLY
       DEF=$( echo "$TASK_DEFINITION" \
             | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
+            | sed -e "s|\"awslogs-stream-prefix\": \".*\"|\"awslogs-stream-prefix\": \"${imageTag}\"|g" \
             | jq '.taskDefinition' )
     fi
 
