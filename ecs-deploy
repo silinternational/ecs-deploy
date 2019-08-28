@@ -241,7 +241,7 @@ function parseImageName() {
       if [[ ! -z ${domain+undefined-guard} ]]; then
         useImage="$domain"
       fi
-      if [[ ! -z ${port} ]]; then
+      if [[ ! -z ${port+undefined-guard} ]]; then
         useImage="$useImage:$port"
       fi
       if [[ ! -z ${repo+undefined-guard} ]]; then
@@ -250,7 +250,7 @@ function parseImageName() {
        fi
       fi
       if [[ ! -z ${img+undefined-guard} ]]; then
-        if [[ "x$useImage" == "x" ]]; then
+        if [[ "x${useImage+undefined-guard}" == "x" ]]; then
           useImage="$img"
         else
           useImage="$useImage/$img"
