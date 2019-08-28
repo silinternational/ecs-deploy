@@ -217,6 +217,12 @@ function parseImageName() {
           exit 12
         fi
         tag=${BASH_REMATCH[2]}
+
+        # for root level repo, initialize unused variables for checks when rebuilding image below
+        domain=""
+        port=""
+        repo=""
+
       else
         echo "Unable to parse image name: $IMAGE, check the format and try again"
         exit 13
@@ -236,28 +242,27 @@ function parseImageName() {
     fi
 
     # Reassemble image name
+    useImage=""
     if [[ "x$TAGONLY" == "x" ]]; then
 
-      if [[ ! -z ${domain+undefined-guard} ]]; then
+      if [[ ! -z "$domain" ]]; then
         useImage="$domain"
       fi
-      if [[ ! -z ${port+undefined-guard} ]]; then
+      if [[ ! -z "$port" ]]; then
         useImage="$useImage:$port"
       fi
-      if [[ ! -z ${repo+undefined-guard} ]]; then
-       if [[ ! "x$repo" == "x" ]]; then
+      if [[ ! -z "$repo" ]]; then
         useImage="$useImage/$repo"
-       fi
       fi
-      if [[ ! -z ${img+undefined-guard} ]]; then
-        if [[ "x${useImage+undefined-guard}" == "x" ]]; then
+      if [[ ! -z "$img" ]]; then
+        if [[ -z "$useImage" ]]; then
           useImage="$img"
         else
           useImage="$useImage/$img"
         fi
       fi
       imageWithoutTag="$useImage"
-      if [[ ! -z ${tag+undefined-guard} ]]; then
+      if [[ ! -z "$tag" ]]; then
         useImage="$useImage:$tag"
       fi
 
