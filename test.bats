@@ -279,7 +279,7 @@ EOF
   expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value * " } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
-  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
+  [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
 }
 
 @test "test createNewTaskDefJson with single container in definition for AWS Fargate" {
@@ -345,7 +345,7 @@ EOF
   expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "awsvpc", "executionRoleArn": "arn:aws:iam::121212345678:role/ecsTaskExecutionRole", "requiresCompatibilities": [ "FARGATE" ], "cpu": "256", "memory": "512" }'
   run createNewTaskDefJson
   [ ! -z $status ]
-  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
+  [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
 }
 
 @test "test createNewTaskDefJson with multiple containers in definition" {
@@ -429,7 +429,7 @@ EOF
   expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:latest", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
-  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
+  [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
 }
 
 @test "test parseImageName with tagonly option" {
@@ -441,7 +441,7 @@ EOF
   run parseImageName
 
   [ ! -z $status ]
-  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
+  [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
 }
 
 @test "test createNewTaskDefJson with multiple containers in definition and replace only tags" {
@@ -527,5 +527,5 @@ EOF
   run createNewTaskDefJson
   echo $output
   [ ! -z $status ]
-  [ $(echo "$output" | jq) == $(echo "$expected" | jq) ]
+  [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
 }
