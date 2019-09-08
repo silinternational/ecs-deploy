@@ -21,6 +21,8 @@ AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
+LAUNCH_TYPE=false
+NETWORK_CONFIGURATION=false
 
 function usage() {
     cat <<EOM
@@ -58,6 +60,10 @@ Optional arguments:
     --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
     --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
     --run-task                   Run created task now. If you set this, service-name are not needed.
+    --launch-type                The launch type on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --network-configuration      The network configuration for the task. This parameter is required for task definitions that use
+                                       the awsvpc network mode to receive their own elastic network interface, and it is not supported
+                                       for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -475,7 +481,20 @@ function waitForGreenDeployment {
 
 function runTask {
   echo "Run task: $NEW_TASKDEF";
-  $AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF > /dev/null
+  AWS_ECS_RUN_TASK="$AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF"
+  if [ $LAUNCH_TYPE != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --launch-type $LAUNCH_TYPE"
+  fi
+
+  if [ $NETWORK_CONFIGURATION != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$NETWORK_CONFIGURATION\""
+  fi
+
+  AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK > /dev/null"
+
+  echo $AWS_ECS_RUN_TASK
+
+  eval $AWS_ECS_RUN_TASK
 }
 
 ######################################################
@@ -582,6 +601,14 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --run-task)
                 RUN_TASK=true
+                ;;
+            --launch-type)
+                LAUNCH_TYPE="$2"
+                shift
+                ;;
+            --network-configuration)
+                NETWORK_CONFIGURATION="$2"
+                shift
                 ;;
             -v|--verbose)
                 VERBOSE=true
