@@ -21,8 +21,9 @@ AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
-LAUNCH_TYPE=false
-NETWORK_CONFIGURATION=false
+RUN_TASK_LAUNCH_TYPE=false
+RUN_TASK_NETWORK_CONFIGURATION=false
+RUN_TASK_WAIT_FOR_SUCCESS=false
 
 function usage() {
     cat <<EOM
@@ -60,6 +61,7 @@ Optional arguments:
     --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
     --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
     --run-task                   Run created task now. If you set this, service-name are not needed.
+    --wait-for-success           Wait for task execution to complete and to receive the exitCode 0.
     --launch-type                The launch type on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --network-configuration      The network configuration for the task. This parameter is required for task definitions that use
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
@@ -166,6 +168,21 @@ function assertRequiredArgumentsSet() {
     if ! [[ $MAX_DEFINITIONS =~ ^-?[0-9]+$ ]]; then
         echo "MAX_DEFINITIONS must be numeric, or not defined."
         exit 9
+    fi
+
+    if [ $RUN_TASK == false ] && [ $RUN_TASK_LAUNCH_TYPE != false ]; then
+        echo 'LAUNCH TYPE requires setting RUN TASK argument. You can set it using --run-task flag.'
+        exit 10
+    fi
+
+    if [ $RUN_TASK == false ] && [ $RUN_TASK_NETWORK_CONFIGURATION != false ]; then
+        echo 'NETWORK CONFIGURATION requires setting RUN TASK argument. You can set it using --run-task flag.'
+        exit 11
+    fi
+
+    if [ $RUN_TASK == false ] && [ $RUN_TASK_WAIT_FOR_SUCCESS != false ]; then
+        echo 'WAIT FOR SUCCESS requires setting RUN TASK argument. You can set it using --run-task flag.'
+        exit 11
     fi
 
 }
@@ -482,19 +499,55 @@ function waitForGreenDeployment {
 function runTask {
   echo "Run task: $NEW_TASKDEF";
   AWS_ECS_RUN_TASK="$AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF"
-  if [ $LAUNCH_TYPE != false ]; then
-    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --launch-type $LAUNCH_TYPE"
+  if [ $RUN_TASK_LAUNCH_TYPE != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --launch-type $RUN_TASK_LAUNCH_TYPE"
   fi
 
-  if [ $NETWORK_CONFIGURATION != false ]; then
-    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$NETWORK_CONFIGURATION\""
+  if [ $RUN_TASK_NETWORK_CONFIGURATION != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$RUN_TASK_NETWORK_CONFIGURATION\""
   fi
 
-  AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK > /dev/null"
+  TASK_ARN=$(eval $AWS_ECS_RUN_TASK | jq -r '.tasks[0].taskArn')
+  echo "Executed task: $TASK_ARN"
 
-  echo $AWS_ECS_RUN_TASK
+  RUN_TASK_SUCCESS=false
 
-  eval $AWS_ECS_RUN_TASK
+  if [ $RUN_TASK_WAIT_FOR_SUCCESS == true ]; then
+    every=10
+        i=0
+        while [ $i -lt $TIMEOUT ]
+        do
+
+            TASK_JSON=$($AWS_ECS describe-tasks --cluster "$CLUSTER"  --tasks "$TASK_ARN")
+
+            TASK_STATUS=$(echo $TASK_JSON | jq -r  '.tasks[0].lastStatus')
+            TASK_EXIT_CODE=$(echo $TASK_JSON | jq -r  '.tasks[0].containers[0].exitCode')
+
+            if [ $TASK_STATUS == "STOPPED" ]; then
+                echo "Task finished with status: $TASK_STATUS"
+                if [ $TASK_EXIT_CODE != 0 ]; then
+                   echo "Task execution failed with exit code: $TASK_EXIT_CODE"
+                   exit 1
+               fi
+               RUN_TASK_SUCCESS=true
+               break;
+            fi
+
+            echo "Checking task status every $every seconds. Status: $TASK_STATUS"
+
+            sleep $every
+            i=$(( $i + $every ))
+        done
+  fi
+
+  if [ $RUN_TASK_SUCCESS == false ]; then
+    echo "ERROR: New task run took longer than $TIMEOUT seconds"
+    exit 1
+  fi
+
+  echo "Task $TASK_ARN executed successfully!"
+  exit 0
+
 }
 
 ######################################################
@@ -603,11 +656,14 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 RUN_TASK=true
                 ;;
             --launch-type)
-                LAUNCH_TYPE="$2"
+                RUN_TASK_LAUNCH_TYPE="$2"
                 shift
                 ;;
+            --wait-for-success)
+                RUN_TASK_WAIT_FOR_SUCCESS=true
+                ;;
             --network-configuration)
-                NETWORK_CONFIGURATION="$2"
+                RUN_TASK_NETWORK_CONFIGURATION="$2"
                 shift
                 ;;
             -v|--verbose)
