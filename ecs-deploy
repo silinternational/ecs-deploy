@@ -455,17 +455,36 @@ function waitForGreenDeployment {
     # Wait to see if more than 1 deployment stays running
     # If the wait time has passed, we need to roll back
     if [ $NUM_DEPLOYMENTS -eq 1 ]; then
-      echo "Service deployment successful."
-      DEPLOYMENT_SUCCESS="true"
-      # Exit the loop.
-      i=$TIMEOUT
-    else
-      sleep $every
-      i=$(( $i + $every ))
+      SERVICE_DESIREDCOUNT=$($AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '[.services[].deployments[0].desiredCount]' | grep -Eo '[0-9]{1,}')
+      if [ $SERVICE_DESIREDCOUNT -eq 0 ]; then
+          echo "Service deployment successful, no task to start up."
+          DEPLOYMENT_SUCCESS="true"
+          # Exit the loop.
+          i=$TIMEOUT
+      else
+        # Retrieve the events so we can evaluate the ones that notified about a steady state
+        EVENTS=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq '[.services[].events[] | "\(.message),\(.createdAt)"]' | grep 'has reached a steady state' | cut -d',' -f2 | grep -Eo '[0-9]{10}')
+        for e in $EVENTS; do
+          if [ $e -gt $NOW ]; then
+            echo "Service deployment successful."
+            DEPLOYMENT_SUCCESS="true"
+            # Exit the loop.
+            i=$TIMEOUT
+          fi
+        done
+        fi
+    fi
+
+    sleep $every
+    i=$(( $i + $every ))
+
+    if [ "$(( $i % 60 ))" = "0" ]; then
+      echo "Waiting for service to become steady. It's been $i seconds out of $TIMEOUT..."
     fi
   done
 
   if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
+    echo "Service didn't become steady after $i seconds... Automatic rollback is set to $ENABLE_ROLLBACK."
     if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
       rollback
     fi
@@ -601,6 +620,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     if [ $VERBOSE == true ]; then
         set -x
     fi
+
+    # To be used as a reference to check for steady states later
+    NOW=$(date +%s)
 
     # Check that required arguments are provided
     assertRequiredArgumentsSet
