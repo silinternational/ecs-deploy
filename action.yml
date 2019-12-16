@@ -1,0 +1,136 @@
+name: 'ESC-Deploy'
+description: 'Simple shell script for initiating blue-green deployments on Amazon EC2 Container Service (ECS)'
+inputs:
+  aws_access_key_cmd:
+    description: '--aws-access-key'
+    required: true
+  aws_access_key:
+    description: 'AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID'
+    required: true
+  aws_secret_key_cmd:
+    description: '--aws-secret-key'
+    required: true
+  aws_secret_key:
+    description: 'AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY'
+    required: true
+  service_name_cmd:
+    description: '--service-name'
+  service_name:
+    description: 'Name of service to deploy'
+    required: false
+  task_definition_cmd:
+    description: '--task-definition'
+  task_definition:
+    description: 'Name of task definition to deploy'
+    required: false
+  region_cmd:
+    description: '--region'
+  region:
+    description: 'AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION'
+    required: true
+  profile_cmd:
+    description: '--profile'
+  profile:
+    description: 'AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed'
+    required: true
+  cluster_cmd:
+    description: '--cluster'
+  cluster:
+    description: 'Name of ECS cluster'
+    required: true
+  image_cmd:
+    description: '--image'
+  image:
+    description: 'Name of Docker image to run, ex: repo/image:latest'
+    required: true
+  aws_assume_role:
+    description: 'ARN for AWS Role to assume for ecs-deploy operations.'
+    required: false
+  desired_count:
+    description: 'The number of instantiations of the task to place and keep running in your service.'
+    required: false
+  min_cmd:
+    description: '--min'
+    default: '--min'
+  min:
+    description: 'minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.'
+    required: false
+    default: '100'
+  max_cmd:
+    description: '--max'
+    default: '--max'
+  max:
+    description: 'maximumPercent: The upper limit on the number of running tasks during a deployment.'
+    required: false
+    default: '200'
+  timeout_cmd:
+    description: '--timeout'
+    default: '--timeout'
+  timeout:
+    description: 'Script monitors ECS Service for new task definition to be running.'
+    required: false
+    default: '90'
+  tag_env_var:
+    description: 'Get image tag name from environment variable. If provided this will override value specified in image name argument.'
+    required: false
+  tag_only:
+    description: 'New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.'
+    required: false
+  max_definitions_cmd:
+    description: '--max-definition'
+  max_definitions:
+    description: 'Number of Task Definition Revisions to persist before deregistering oldest revisions.'
+    required: false
+  enable_rollback_cmd:
+    description: '--enable-rollback'
+  enable_rollback:
+    description: 'Rollback task definition if new version is not running before TIMEOUT'
+    required: false
+  use_latest_task_def_cmd:
+    description: '--use-latest-task-def'
+  use_latest_task_def:
+    description: 'Will use the most recently created task definition as its base, rather than the last used.'
+    required: false
+  force_new_deployment:
+    description: 'Force a new deployment of the service.'
+    required: false
+  run_task:
+    description: 'Run created task now. If you set this, service-name are not needed.'
+    required: false
+  skip_deployments_check_cmd:
+    description: '--skip-deployments-check'
+  skip_deployments_check:
+    description: 'Skip deployments check for services that take too long to drain old tasks'
+  verbose:
+    description: 'Verbose output'
+    required: false
+outputs:
+  status:
+    description: 'status'
+branding:
+  icon: 'codesandbox'
+  color: 'blue'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args: [
+    '${{ inputs.aws_access_key_cmd }}', '${{ inputs.aws_access_key }}',
+    '${{ inputs.aws_secret_key_cmd }}', '${{ inputs.aws_secret_key }}',
+    '${{ inputs.enable_rollback_cmd }}', '${{ inputs.enable_rollback }}',
+    '${{ inputs.force_new_deployment_cmd }}', '${{ inputs.force_new_deployment }}',
+    '${{ inputs.region_cmd }}', '${{ inputs.region }}',
+    '${{ inputs.service_name_cmd }}', '${{ inputs.service_name }}',
+    '${{ inputs.task_definition_cmd }}', '${{ inputs.task_definition }}',
+    '${{ inputs.cluster_cmd }}', '${{ inputs.cluster }}',
+    '${{ inputs.image_cmd }}', '${{ inputs.image }}',
+    '${{ inputs.aws_assume_role_cmd }}', '${{ inputs.aws_assume_role }}',
+    '${{ inputs.desired_count_cmd }}', '${{ inputs.desired_count }}',
+    '${{ inputs.min_cmd }}', '${{ inputs.min }}',
+    '${{ inputs.max_cmd }}', '${{ inputs.max }}',
+    '${{ inputs.profile_cmd }}', '${{ inputs.profile }}',
+    '${{ inputs.timeout_cmd }}', '${{ inputs.timeout }}',
+    '${{ inputs.tag_env_var_cmd }}', '${{ inputs.tag_env_var }}',
+    '${{ inputs.tag_only_cmd }}', '${{ inputs.tag_only }}',
+    '${{ inputs.use_latest_task_def_cmd }}', '${{ inputs.use_latest_task_def }}',
+    '${{ inputs.max_definitions_cmd }}', '${{ inputs.max_definitions }}'
+  ]
