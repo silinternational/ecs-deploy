@@ -591,8 +591,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 exit 0
                 ;;
             *)
-                usage
-                exit 2
+                #If another key was given that is not empty display usage.
+                if [[ ! -z "$key" ]]; then
+                  usage
+                  exit 2
+                fi
             ;;
         esac
         shift # past argument or value
