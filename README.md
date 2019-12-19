@@ -217,3 +217,33 @@ AWS APIs to perform actions. So for now any parsing/processing of data locally
 is tested.
 
 Any new functionality and pull requests should come with tests as well (if possible).
+
+Github Actions Support
+-------
+Github Actions support is available.  Add a code block similar to that below to your actions yaml file.  Parameters are passed to the ecs-deploy tool under 'with' section. For each parameter, the parameter name followed by _cmd must be called with the appropriate parameter option like '--aws-access-key' in addition to supplying the parameter aws_access_key with the appropriate value.
+```
+deploy_to_ecs:
+  name: 'Deploy updated container image via blue/green deployment to ECS service.'
+  runs-on: ubuntu-18.04
+  steps:
+  - uses: silinternational/ecs-deploy@master
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: 'us-east-1'
+    with:
+      aws_access_key_cmd: '--aws-access-key'
+      aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws_secret_key_cmd: '--aws-secret-key'
+      aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      cluster_cmd: '--cluster'
+      cluster: 'cluster-name'
+      image_cmd: '--image'
+      image: '{amazon_id}.dkr.ecr.us-east-1.amazonaws.com/cluster-name/image_name:latest'
+      region_cmd: '--region'
+      region: 'us-east-1'
+      service_name_cmd: '--service-name'
+      service_name: 'aws-service-name'
+      timeout_cmd: '--timeout'
+      timeout: '360'
+```
