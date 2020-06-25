@@ -460,7 +460,8 @@ function waitForGreenDeployment {
     if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
       rollback
     fi
-    exit 1
+    echo "WARNING - Deployment took more than $TIMEOUT to complete; releasing script. Check service in AWS console."
+    exit 0
   fi
 }
 
