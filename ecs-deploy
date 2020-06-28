@@ -308,8 +308,7 @@ function createNewTaskDefJson() {
     # + Filter the def
     if [[ "x$TAGONLY" == "x" ]]; then
       DEF=$( echo "$TASK_DEFINITION" \
-            | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
-            | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
+            | sed -e 's~"image":.*,~"image": "'${useImage}'",~' \
             | jq '.taskDefinition' )
     else
       DEF=$( echo "$TASK_DEFINITION" \
