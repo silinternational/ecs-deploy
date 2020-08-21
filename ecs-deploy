@@ -5,6 +5,7 @@ VERSION="3.7.1"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
+TASK_DEFINITION_FILE=false
 MAX_DEFINITIONS=0
 AWS_ASSUME_ROLE=false
 IMAGE=false
@@ -53,6 +54,7 @@ Optional arguments:
     -e | --tag-env-var           Get image tag name from environment variable. If provided this will override value specified in image name argument.
     -to | --tag-only             New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions            Number of Task Definition Revisions to persist before deregistering oldest revisions.
+    --task-definition-file       File used as task definition to deploy
     --enable-rollback            Rollback task definition if new version is not running before TIMEOUT
     --force-new-deployment       Force a new deployment of the service. Default is false.
     --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
@@ -303,16 +305,23 @@ function getCurrentTaskDefinition() {
 }
 
 function createNewTaskDefJson() {
+
+    if [ $TASK_DEFINITION_FILE == false ]; then
+        taskDefinition="$TASK_DEFINITION"
+    else
+        taskDefinition="$(cat $TASK_DEFINITION_FILE)"
+    fi
+
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
     # + Filter the def
     if [[ "x$TAGONLY" == "x" ]]; then
-      DEF=$( echo "$TASK_DEFINITION" \
+      DEF=$( echo "$taskDefinition" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}:.*\"|\"image\": \"${useImage}\"|g" \
             | sed -e "s|\"image\": *\"${imageWithoutTag}\"|\"image\": \"${useImage}\"|g" \
             | jq '.taskDefinition' )
     else
-      DEF=$( echo "$TASK_DEFINITION" \
+      DEF=$( echo "$taskDefinition" \
             | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
             | jq '.taskDefinition' )
     fi
@@ -333,7 +342,11 @@ function createNewTaskDefJson() {
     # Updated jq filters for AWS Fargate
     REQUIRES_COMPATIBILITIES=$(echo "${DEF}" | jq -r '. | select(.requiresCompatibilities != null) | .requiresCompatibilities[]')
     if `echo ${REQUIRES_COMPATIBILITIES[@]} | grep -q "FARGATE"`; then
-      FARGATE_JQ_FILTER='executionRoleArn: .executionRoleArn, requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory'
+      FARGATE_JQ_FILTER='requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory'
+
+      if [[ ! "$NEW_DEF_JQ_FILTER" =~ ".*executionRoleArn.*" ]]; then
+        FARGATE_JQ_FILTER="${FARGATE_JQ_FILTER}, executionRoleArn: .executionRoleArn"
+      fi
       NEW_DEF_JQ_FILTER="${NEW_DEF_JQ_FILTER}, ${FARGATE_JQ_FILTER}"
     fi
 
@@ -362,6 +375,14 @@ function updateServiceForceNewDeployment() {
 }
 
 function updateService() {
+    if [[ $(echo ${NEW_DEF} | jq ".containerDefinitions[0].healthCheck != null") == true ]]; then
+        checkFieldName="healthStatus"
+        checkFieldValue="HEALTHY"
+    else
+        checkFieldName="lastStatus"
+        checkFieldValue="RUNNING"
+    fi
+
     UPDATE_SERVICE_SUCCESS="false"
     DEPLOYMENT_CONFIG=""
     if [ $MAX != false ]; then
@@ -398,8 +419,8 @@ function updateService() {
 
             if [[ ! -z $RUNNING_TASKS ]] ; then
                 RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
-                    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.lastStatus" \
-                    | grep -e "RUNNING") || :
+                    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.${checkFieldName}" \
+                    | grep -e "${checkFieldValue}") || :
 
                 if [ "$RUNNING" ]; then
                     echo "Service updated successfully, new task definition running.";
@@ -566,6 +587,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --max-definitions)
                 MAX_DEFINITIONS="$2"
+                shift
+                ;;
+            --task-definition-file)
+                TASK_DEFINITION_FILE="$2"
                 shift
                 ;;
             --enable-rollback)
