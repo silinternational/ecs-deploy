@@ -43,6 +43,11 @@ Usage
         --force-new-deployment        Force a new deployment of the service. Default is false.
         --skip-deployments-check      Skip deployments check for services that take too long to drain old tasks
         --run-task                    Run created task now. If you set this, service-name are not needed.
+        --wait-for-success            Wait for task execution to complete and to receive the exitCode 0.
+        --launch-type                 The launch type on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+        --network-configuration       The network configuration for the task. This parameter is required for task definitions that use
+                                          the awsvpc network mode to receive their own elastic network interface, and it is not supported
+                                          for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
         -v | --verbose                Verbose output
              --version                Display the version
 
