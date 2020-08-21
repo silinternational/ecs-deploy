@@ -531,40 +531,41 @@ function runTask {
   TASK_ARN=$(eval $AWS_ECS_RUN_TASK | jq -r '.tasks[0].taskArn')
   echo "Executed task: $TASK_ARN"
 
-  RUN_TASK_SUCCESS=false
-
   if [ $RUN_TASK_WAIT_FOR_SUCCESS == true ]; then
+    RUN_TASK_SUCCESS=false
     every=10
-        i=0
-        while [ $i -lt $TIMEOUT ]
-        do
+    i=0
+    while [ $i -lt $TIMEOUT ]
+    do
 
-            TASK_JSON=$($AWS_ECS describe-tasks --cluster "$CLUSTER"  --tasks "$TASK_ARN")
+        TASK_JSON=$($AWS_ECS describe-tasks --cluster "$CLUSTER"  --tasks "$TASK_ARN")
 
-            TASK_STATUS=$(echo $TASK_JSON | jq -r  '.tasks[0].lastStatus')
-            TASK_EXIT_CODE=$(echo $TASK_JSON | jq -r  '.tasks[0].containers[0].exitCode')
+        TASK_STATUS=$(echo $TASK_JSON | jq -r  '.tasks[0].lastStatus')
+        TASK_EXIT_CODE=$(echo $TASK_JSON | jq -r  '.tasks[0].containers[0].exitCode')
 
-            if [ $TASK_STATUS == "STOPPED" ]; then
-                echo "Task finished with status: $TASK_STATUS"
-                if [ $TASK_EXIT_CODE != 0 ]; then
-                   echo "Task execution failed with exit code: $TASK_EXIT_CODE"
-                   exit 1
-               fi
-               RUN_TASK_SUCCESS=true
-               break;
+        if [ $TASK_STATUS == "STOPPED" ]; then
+            echo "Task finished with status: $TASK_STATUS"
+            if [ $TASK_EXIT_CODE != 0 ]; then
+                echo "Task execution failed with exit code: $TASK_EXIT_CODE"
+                exit 1
             fi
+            RUN_TASK_SUCCESS=true
+            break;
+        fi
 
-            echo "Checking task status every $every seconds. Status: $TASK_STATUS"
+        echo "Checking task status every $every seconds. Status: $TASK_STATUS"
 
-            sleep $every
-            i=$(( $i + $every ))
-        done
+        sleep $every
+        i=$(( $i + $every ))
+    done
+
+    if [ $RUN_TASK_SUCCESS == false ]; then
+      echo "ERROR: New task run took longer than $TIMEOUT seconds"
+      exit 1
+    fi
   fi
 
-  if [ $RUN_TASK_SUCCESS == false ]; then
-    echo "ERROR: New task run took longer than $TIMEOUT seconds"
-    exit 1
-  fi
+  
 
   echo "Task $TASK_ARN executed successfully!"
   exit 0
