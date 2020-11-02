@@ -48,6 +48,7 @@ Usage
         --network-configuration       The network configuration for the task. This parameter is required for task definitions that use
                                           the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                           for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+        --copy-task-definition-tags   Copy the existing task definition tags to the new task definition revision
         -v | --verbose                Verbose output
              --version                Display the version
 
