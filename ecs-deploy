@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.9.1"
+VERSION="3.10.0"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -23,8 +23,11 @@ FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
 RUN_TASK_LAUNCH_TYPE=false
+RUN_TASK_PLATFORM_VERSION=false
 RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
+TASK_DEFINITION_TAGS=false
+COPY_TASK_DEFINITION_TAGS=false
 
 function usage() {
     cat <<EOM
@@ -54,20 +57,26 @@ Optional arguments:
     -m | --min                   minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
     -M | --max                   maximumPercent: The upper limit on the number of running tasks during a deployment.
     -t | --timeout               Default is 90s. Script monitors ECS Service for new task definition to be running.
-    -e | --tag-env-var           Get image tag name from environment variable. If provided this will override value specified in image name argument.
-    -to | --tag-only             New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
+    -e | --tag-env-var           Get image tag name from environment variable. If provided this will override value
+                                       specified in image name argument.
+    -to | --tag-only             New tag to apply to all images defined in the task (multi-container task).
+                                       If provided this will override value specified in image name argument.
     --max-definitions            Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --task-definition-file       File used as task definition to deploy
     --enable-rollback            Rollback task definition if new version is not running before TIMEOUT
     --force-new-deployment       Force a new deployment of the service. Default is false.
-    --use-latest-task-def   Will use the most recently created task definition as it's base, rather than the last used.
+    --use-latest-task-def        Will use the most recently created task definition as it's base, rather than the last used.
     --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
     --run-task                   Run created task now. If you set this, service-name are not needed.
     --wait-for-success           Wait for task execution to complete and to receive the exitCode 0.
-    --launch-type                The launch type on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --launch-type                The launch type on which to run your task.
+                                       (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --platform-version           The Fargate platform version on which to run your task.
+                                       (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --network-configuration      The network configuration for the task. This parameter is required for task definitions that use
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --copy-task-definition-tags  Copy the existing task definition tags to the new task definition revision
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -185,6 +194,11 @@ function assertRequiredArgumentsSet() {
     if [ $RUN_TASK == false ] && [ $RUN_TASK_WAIT_FOR_SUCCESS != false ]; then
         echo 'WAIT FOR SUCCESS requires setting RUN TASK argument. You can set it using --run-task flag.'
         exit 11
+    fi
+
+    if [ $RUN_TASK == false ] && [ $RUN_TASK_PLATFORM_VERSION != false ]; then
+        echo 'PLATFORM VERSION requires setting RUN TASK argument. You can set it using --run-task flag.'
+        exit 12
     fi
 
 }
@@ -324,7 +338,15 @@ function getCurrentTaskDefinition() {
       # Get current task definition arn from family[:revision] (or arn)
       TASK_DEFINITION_ARN=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION | jq -r .taskDefinition.taskDefinitionArn`
     fi
-    TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+
+    # Get task definition using current task definition arn
+    # If we're copying task definition tags to the new revision, also get current task definition tags
+    if [[ "$COPY_TASK_DEFINITION_TAGS" == true ]]; then
+      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN --include TAGS`
+      TASK_DEFINITION_TAGS=$( echo "$TASK_DEFINITION" | jq ".tags" )
+    else
+      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+    fi
 }
 
 function createNewTaskDefJson() {
@@ -339,7 +361,7 @@ function createNewTaskDefJson() {
     # + Update definition to use new image name
     # + Filter the def
     if [[ "x$TAGONLY" == "x" ]]; then
-      DEF=$( echo "$TASK_DEFINITION" \
+      DEF=$( echo "$taskDefinition" \
             | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
             | jq '.taskDefinition' )
     else
@@ -383,7 +405,11 @@ function createNewTaskDefJson() {
 
 function registerNewTaskDefinition() {
     # Register the new task definition, and store its ARN
-    NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
+    if [[ "$COPY_TASK_DEFINITION_TAGS" == true && "$TASK_DEFINITION_TAGS" != false ]]; then
+      NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" --tags "$TASK_DEFINITION_TAGS" | jq -r .taskDefinition.taskDefinitionArn`
+    else
+      NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
+    fi
 }
 
 function rollback() {
@@ -523,6 +549,10 @@ function runTask {
     AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --launch-type $RUN_TASK_LAUNCH_TYPE"
   fi
 
+  if [ $RUN_TASK_PLATFORM_VERSION != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --platform-version $RUN_TASK_PLATFORM_VERSION"
+  fi
+
   if [ $RUN_TASK_NETWORK_CONFIGURATION != false ]; then
     AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$RUN_TASK_NETWORK_CONFIGURATION\""
   fi
@@ -564,7 +594,7 @@ function runTask {
     fi
   fi
 
-  
+
 
   echo "Task $TASK_ARN executed successfully!"
   exit 0
@@ -684,12 +714,19 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 RUN_TASK_LAUNCH_TYPE="$2"
                 shift
                 ;;
+            --platform-version)
+                RUN_TASK_PLATFORM_VERSION="$2"
+                shift
+                ;;
             --wait-for-success)
                 RUN_TASK_WAIT_FOR_SUCCESS=true
                 ;;
             --network-configuration)
                 RUN_TASK_NETWORK_CONFIGURATION="$2"
                 shift
+                ;;
+            --copy-task-definition-tags)
+                COPY_TASK_DEFINITION_TAGS=true
                 ;;
             -v|--verbose)
                 VERBOSE=true

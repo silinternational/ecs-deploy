@@ -1,4 +1,4 @@
-FROM alpine:3.12
+FROM alpine:3.13
 
 # Install packges needed
 RUN apk --no-cache add ca-certificates curl bash jq py3-pip && \
