@@ -23,6 +23,7 @@ FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
 RUN_TASK_LAUNCH_TYPE=false
+RUN_TASK_PLATFORM_VERSION=false
 RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
 
@@ -65,6 +66,7 @@ Optional arguments:
     --run-task                   Run created task now. If you set this, service-name are not needed.
     --wait-for-success           Wait for task execution to complete and to receive the exitCode 0.
     --launch-type                The launch type on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --platform-version           The Fargate platform version on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --network-configuration      The network configuration for the task. This parameter is required for task definitions that use
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
@@ -185,6 +187,11 @@ function assertRequiredArgumentsSet() {
     if [ $RUN_TASK == false ] && [ $RUN_TASK_WAIT_FOR_SUCCESS != false ]; then
         echo 'WAIT FOR SUCCESS requires setting RUN TASK argument. You can set it using --run-task flag.'
         exit 11
+    fi
+
+    if [ $RUN_TASK == false ] && [ $RUN_TASK_PLATFORM_VERSION != false ]; then
+        echo 'PLATFORM VERSION requires setting RUN TASK argument. You can set it using --run-task flag.'
+        exit 12
     fi
 
 }
@@ -523,6 +530,10 @@ function runTask {
     AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --launch-type $RUN_TASK_LAUNCH_TYPE"
   fi
 
+  if [ $RUN_TASK_PLATFORM_VERSION != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --platform-version $RUN_TASK_PLATFORM_VERSION"
+  fi
+
   if [ $RUN_TASK_NETWORK_CONFIGURATION != false ]; then
     AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$RUN_TASK_NETWORK_CONFIGURATION\""
   fi
@@ -564,7 +575,7 @@ function runTask {
     fi
   fi
 
-  
+
 
   echo "Task $TASK_ARN executed successfully!"
   exit 0
@@ -682,6 +693,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --launch-type)
                 RUN_TASK_LAUNCH_TYPE="$2"
+                shift
+                ;;
+            --platform-version)
+                RUN_TASK_PLATFORM_VERSION="$2"
                 shift
                 ;;
             --wait-for-success)
