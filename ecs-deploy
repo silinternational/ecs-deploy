@@ -570,14 +570,19 @@ function runTask {
         TASK_JSON=$($AWS_ECS describe-tasks --cluster "$CLUSTER"  --tasks "$TASK_ARN")
 
         TASK_STATUS=$(echo $TASK_JSON | jq -r  '.tasks[0].lastStatus')
-        TASK_EXIT_CODE=$(echo $TASK_JSON | jq -r  '.tasks[0].containers[0].exitCode')
+        # readarray -t reads lines into array. jq -c compacts each array element to one line
+        readarray -t CONTAINERS < <(echo $TASK_JSON | jq -rc '.tasks[0].containers[]')
 
         if [ $TASK_STATUS == "STOPPED" ]; then
             echo "Task finished with status: $TASK_STATUS"
-            if [ $TASK_EXIT_CODE != 0 ]; then
-                echo "Task execution failed with exit code: $TASK_EXIT_CODE"
-                exit 1
-            fi
+            for CONTAINER in "${CONTAINERS[@]}"; do
+                NAME=$(echo $CONTAINER | jq .name)
+                EXIT_CODE=$(echo $CONTAINER | jq .exitCode)
+                if [ $EXIT_CODE != 0 ]; then
+                    echo "Task execution failed in container $NAME with exit code: $EXIT_CODE"
+                    exit 1
+                fi
+            done
             RUN_TASK_SUCCESS=true
             break;
         fi
