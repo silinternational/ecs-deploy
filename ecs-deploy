@@ -365,8 +365,12 @@ function createNewTaskDefJson() {
             | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
             | jq '.taskDefinition' )
     else
+      # Applying tag only, to first container definition only
+      new_image=$( echo "$taskDefinition" \
+                  | jq -r '.taskDefinition.containerDefinitions[0].image' \
+                  | sed -e "s|\(.*:\)\(.*\)|\1${useImage}|g" )
       DEF=$( echo "$taskDefinition" \
-            | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
+            | jq '.taskDefinition.containerDefinitions[0].image="'$new_image'"' \
             | jq '.taskDefinition' )
     fi
 

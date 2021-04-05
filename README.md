@@ -32,7 +32,7 @@ Usage
         -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment. (default: 200)
         -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
         -e | --tag-env-var            Get image tag name from environment variable. If provided this will override value specified in image name argument.
-        -to | --tag-only              New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
+        -to | --tag-only              New tag to apply to 'main' image (first one) defined in the task (multi-container task). If provided this will override value specified in image name argument.
         --max-definitions             Number of Task Definition Revisions to persist before deregistering oldest revisions.
                                       Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
@@ -74,7 +74,7 @@ Usage
 
         ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
 
-      Update just the tag on whatever image is found in ECS Task (supports multi-container tasks):
+      Update just the tag on 'main' image (first one) found in ECS Task (supports multi-container tasks):
 
         ecs-deploy -c staging -n core-service -to 0.1.899 -i ignore
 
