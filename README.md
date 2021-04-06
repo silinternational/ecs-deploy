@@ -105,7 +105,7 @@ The Task Definition then acts a sort of template for actually running the contai
 containers is known as a Task. Due to the way docker implements networking, generally you can only run one Task per Task
 Definition per Container Instance (the virtual machines providing the cluster infrastructure).
 
-Task Definitions are automatically version controlled---the actual name of a Task Definition is composed of two parts, the
+Task Definitions are automatically version controlled. The actual name of a Task Definition is composed of two parts, the
 Family name, and a version number, like so: `phpMyAdmin:3`
 
 Since a Task is supposed to be a fully self-contained "worker unit" of a broader application, Amazon uses another configuration
@@ -135,13 +135,13 @@ but identical version of a Task Definition, and the Service will still do a blue
 
 Nevertheless, since the system uses docker, the assumption is that improvements to the application are built into
 its container images, which are then pushed into a repository (public or private), to then be pulled down for use by ECS. This
-script therefore uses the specified `image` parameter as a modification key to change the tag used by a container's image. It
+script therefore uses the specified `--image` parameter as a modification key to change the tag used by a container's image. It
 looks for images with the same repository name as the specified parameter, and updates its tag to the one in the specified
 parameter.
 
 _A direct consequence of this is that if you define more than one container in your Task Definition to use the same image, all
 of them will be updated to the specified tag, even if you set them to use different tags initially. But this is considered to
-be an unlikely use case. This is not the case when using `tag-only` parameter instead of `image` parameter, since the only 
+be an unlikely use case. This is not the case when using `--tag-only` parameter instead of `--image` parameter, since the only 
 updated image would be the one on the 'main' container only, the first one._
 
 This behavior allows two possible process to specify which images, and therefore which configurations, to deploy. First, you
