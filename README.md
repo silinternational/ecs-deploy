@@ -46,7 +46,7 @@ Usage
         --wait-for-success            Wait for task execution to complete and to receive the exitCode 0.
         --launch-type                 The launch type on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
         --platform-version            The Fargate platform version on which to run your task. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
-        --network-configuration       The network configuration for the task. This parameter is required for task definitions that use
+        --network-configuration       The network configuration for the task. This argument is required for task definitions that use
                                           the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                           for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
         --copy-task-definition-tags   Copy the existing task definition tags to the new task definition revision
