@@ -59,7 +59,7 @@ Optional arguments:
     -t | --timeout               Default is 90s. Script monitors ECS Service for new task definition to be running.
     -e | --tag-env-var           Get image tag name from environment variable. If provided this will override value
                                        specified in image name argument.
-    -to | --tag-only             New tag to apply to all images defined in the task (multi-container task).
+    -to | --tag-only             New tag to apply to 'main' image (first one) defined in the task (multi-container task).
                                        If provided this will override value specified in image name argument.
     --max-definitions            Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --task-definition-file       File used as task definition to deploy
@@ -73,7 +73,7 @@ Optional arguments:
                                        (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --platform-version           The Fargate platform version on which to run your task.
                                        (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
-    --network-configuration      The network configuration for the task. This parameter is required for task definitions that use
+    --network-configuration      The network configuration for the task. This argument is required for task definitions that use
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --copy-task-definition-tags  Copy the existing task definition tags to the new task definition revision
