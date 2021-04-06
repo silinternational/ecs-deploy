@@ -59,7 +59,7 @@ Optional arguments:
     -t | --timeout               Default is 90s. Script monitors ECS Service for new task definition to be running.
     -e | --tag-env-var           Get image tag name from environment variable. If provided this will override value
                                        specified in image name argument.
-    -to | --tag-only             New tag to apply to all images defined in the task (multi-container task).
+    -to | --tag-only             New tag to apply to 'main' image (first one) defined in the task (multi-container task).
                                        If provided this will override value specified in image name argument.
     --max-definitions            Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --task-definition-file       File used as task definition to deploy

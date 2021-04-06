@@ -141,7 +141,8 @@ parameter.
 
 _A direct consequence of this is that if you define more than one container in your Task Definition to use the same image, all
 of them will be updated to the specified tag, even if you set them to use different tags initially. But this is considered to
-be an unlikely use case._
+be an unlikely use case. This is not the case when using `tag-only` parameter instead of `image` parameter, since the only 
+updated image would be the one on the 'main' container only, the first one._
 
 This behavior allows two possible process to specify which images, and therefore which configurations, to deploy. First, you
 may set the tag to always be `latest` (or some other static value), like so:
