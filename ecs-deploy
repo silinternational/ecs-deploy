@@ -322,7 +322,7 @@ function parseImageName() {
 function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
       # Get current task definition arn from service
-      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
+      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq -r .services[0].taskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
 
       # For rollbacks
@@ -523,7 +523,7 @@ function waitForGreenDeployment {
   echo "Waiting for service deployment to complete..."
   while [ $i -lt $TIMEOUT ]
   do
-    NUM_DEPLOYMENTS=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq "[.services[].deployments[]] | length")
+    NUM_DEPLOYMENTS=$($AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq "[.services[].deployments[]] | length")
 
     # Wait to see if more than 1 deployment stays running
     # If the wait time has passed, we need to roll back
