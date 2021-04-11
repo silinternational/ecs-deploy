@@ -331,7 +331,7 @@ function parseImageName() {
 function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
       # Get current task definition arn from service
-      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq -r .services[0].taskDefinition`
+      TASK_DEFINITION_ARN=`${DEPLOYMENT_CONTROLLER}_service_currentTaskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
 
       # For rollbacks
@@ -485,6 +485,11 @@ function runTask {
 }
 
 ## CODE_DEPLOY deployment controller: unsupported
+function CODE_DEPLOY_service_currentTaskDefinition() {
+  echo "service current task definition: unsupported"
+  exit 1
+}
+
 function CODE_DEPLOY_service_forceNewDeployment() {
   echo "force new deployment: unsupported"
   exit 1
@@ -501,9 +506,27 @@ function CODE_DEPLOY_service_rollback() {
 }
 
 ## EXTERNAL deployment controller
+function EXTERNAL_service_currentTaskDefinition() {
+  _EXTERNAL_activeTaskSetDefinitionJson | jq -r '.taskDefinition'
+}
+
 function EXTERNAL_service_forceNewDeployment() {
-  echo "force new deployment: unsupported"
-  exit 1
+  local current_task_set=`_EXTERNAL_activeTaskSetDefinitionJson`
+  local current_task_set_arn=`echo $current_task_set | jq -r '.taskSetArn'`
+  local new_task=`echo $current_task_set | \
+    jq -r '. + {cluster: "'$CLUSTER'", service: "'$SERVICE'"}' | \
+    jq -c 'del(.id,.taskSetArn,.serviceArn,.clusterArn,.status,.computedDesiredCount,.pendingCount,.runningCount,.createdAt,.updatedAt,.stabilityStatus,.stabilityStatusAt)'`
+  
+  echo 'Force a new deployment of the service'
+  local new_task_set_id=`$AWS_ECS create-task-set --cli-input-json "$new_task" | jq -rc '.taskSet.id'`
+  local pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' ) 
+  until [[ "$pending" == "0" ]]; do
+      sleep 2s
+      pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
+  done
+  
+  echo 'Delete old deployment'
+  $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $current_task_set_arn > /dev/null
 }
 
 function EXTERNAL_service_update() {
@@ -516,13 +539,35 @@ function EXTERNAL_service_rollback() {
   exit 1
 }
 
+# private functions: 'EXTERNAL' deployment controller
+function _EXTERNAL_activeTaskSetDefinitionJson() {
+  local active_task_sets=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
+    jq '.services[].taskSets | map(select(.status == "ACTIVE" and .runningCount > 0 and .pendingCount == 0))'`
+  
+  if [[ `echo $active_task_sets | jq -r 'length'` != "1" ]]; then
+    echo "No unique ACTIVE task set (found `echo $active_task_sets | jq -r 'length'`)"
+    exit 1
+  fi
+  
+  echo $active_task_sets | jq -r '.[0]'
+}
+
+function _EXTERNAL_taskSetAsActive() {
+    local ts="$1"
+    $AWS_ECS describe-task-sets --cluster $CLUSTER --service $SERVICE --task-sets $ts | \
+        jq -rc '.taskSets[0] | select(.status == "ACTIVE" and .runningCount > 0)'
+}
+
 ## ECS (default) deployment controller
+function ECS_service_currentTaskDefinition() {
+  $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq -r .services[0].taskDefinition
+}
+
 function ECS_service_forceNewDeployment() {
   _ECS_updateServiceForceNewDeployment
   if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
     _ECS_waitForGreenDeployment
   fi
-  exit 0
 }
 
 function ECS_service_update() {
@@ -826,6 +871,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     # Not required creation of new a task definition
     if [ $FORCE_NEW_DEPLOYMENT == true ]; then
       ${DEPLOYMENT_CONTROLLER}_service_forceNewDeployment
+      exit 0
     fi
 
     # Determine image name
