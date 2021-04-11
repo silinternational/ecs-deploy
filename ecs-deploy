@@ -208,12 +208,8 @@ function initDeploymentController() {
   else
     DEPLOYMENT_CONTROLLER="ECS"
   fi
-
-  # Check for supported deployment controller  
-  if [[ "$DEPLOYMENT_CONTROLLER" != "ECS" ]]; then
-      echo "Unsupported deployment controller $DEPLOYMENT_CONTROLLER"
-      exit 1
-  fi
+  
+  echo "Deployment controller: $DEPLOYMENT_CONTROLLER"
 }
 
 function parseImageName() {
@@ -493,6 +489,29 @@ function runTask {
 
 }
 
+## CODE_DEPLOY deployment controller: unsupported
+function CODE_DEPLOY_service_forceNewDeployment() {
+  echo "force new deployment: unsupported"
+  exit 1
+}
+
+function CODE_DEPLOY_service_update() {
+  echo "service update: unsupported"
+  exit 1
+}
+
+## EXTERNAL deployment controller
+function EXTERNAL_service_forceNewDeployment() {
+  echo "force new deployment: unsupported"
+  exit 1
+}
+
+function EXTERNAL_service_update() {
+  echo "service update: unsupported"
+  exit 1
+}
+
+## ECS (default) deployment controller
 function ECS_service_forceNewDeployment() {
   _ECS_updateServiceForceNewDeployment
   if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
