@@ -135,13 +135,11 @@ function assumeRole() {
    export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
 }
 
-
 function assumeRoleClean() {
    unset AWS_ACCESS_KEY_ID
    unset AWS_SECRET_ACCESS_KEY
    unset AWS_SESSION_TOKEN
 }
-
 
 # Check that all required variables/combinations are set
 function assertRequiredArgumentsSet() {
@@ -201,6 +199,21 @@ function assertRequiredArgumentsSet() {
         exit 12
     fi
 
+}
+
+function initDeploymentController() {
+  if [ $SERVICE != false ]; then
+    DEPLOYMENT_CONTROLLER=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq -rc ".services[0].deploymentController.type"`
+    [[ "$DEPLOYMENT_CONTROLLER" == "null" ]] && DEPLOYMENT_CONTROLLER="ECS"
+  else
+    DEPLOYMENT_CONTROLLER="ECS"
+  fi
+
+  # Check for supported deployment controller  
+  if [[ "$DEPLOYMENT_CONTROLLER" != "ECS" ]]; then
+      echo "Unsupported deployment controller $DEPLOYMENT_CONTROLLER"
+      exit 1
+  fi
 }
 
 function parseImageName() {
@@ -321,18 +334,8 @@ function parseImageName() {
 
 function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
-
-      # Check for supported deployment controller
-      local service_descriptor=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE`
-      DEPLOYMENT_CONTROLLER=`echo $service_descriptor | jq -rc ".services[0].deploymentController.type"`
-      [[ "$DEPLOYMENT_CONTROLLER" == "null" ]] && DEPLOYMENT_CONTROLLER="ECS"
-      if [[ "$DEPLOYMENT_CONTROLLER" != "ECS" ]]; then
-          echo "Unsupported deployment controller $DEPLOYMENT_CONTROLLER"
-          exit 1
-      fi
-        
       # Get current task definition arn from service
-      TASK_DEFINITION_ARN=`echo $service_descriptor | jq -r .services[0].taskDefinition`
+      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq -r .services[0].taskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
 
       # For rollbacks
@@ -431,12 +434,83 @@ function rollback() {
     $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $LAST_USED_TASK_DEFINITION_ARN > /dev/null
 }
 
-function updateServiceForceNewDeployment() {
-    echo 'Force a new deployment of the service'
-    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment > /dev/null
+function runTask {
+  echo "Run task: $NEW_TASKDEF";
+  AWS_ECS_RUN_TASK="$AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF"
+  if [ $RUN_TASK_LAUNCH_TYPE != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --launch-type $RUN_TASK_LAUNCH_TYPE"
+  fi
+
+  if [ $RUN_TASK_PLATFORM_VERSION != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --platform-version $RUN_TASK_PLATFORM_VERSION"
+  fi
+
+  if [ $RUN_TASK_NETWORK_CONFIGURATION != false ]; then
+    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$RUN_TASK_NETWORK_CONFIGURATION\""
+  fi
+
+  TASK_ARN=$(eval $AWS_ECS_RUN_TASK | jq -r '.tasks[0].taskArn')
+  echo "Executed task: $TASK_ARN"
+
+  if [ $RUN_TASK_WAIT_FOR_SUCCESS == true ]; then
+    RUN_TASK_SUCCESS=false
+    every=10
+    i=0
+    while [ $i -lt $TIMEOUT ]
+    do
+
+        TASK_JSON=$($AWS_ECS describe-tasks --cluster "$CLUSTER"  --tasks "$TASK_ARN")
+
+        TASK_STATUS=$(echo $TASK_JSON | jq -r  '.tasks[0].lastStatus')
+        TASK_EXIT_CODE=$(echo $TASK_JSON | jq -r  '.tasks[0].containers[0].exitCode')
+
+        if [ $TASK_STATUS == "STOPPED" ]; then
+            echo "Task finished with status: $TASK_STATUS"
+            if [ $TASK_EXIT_CODE != 0 ]; then
+                echo "Task execution failed with exit code: $TASK_EXIT_CODE"
+                exit 1
+            fi
+            RUN_TASK_SUCCESS=true
+            break;
+        fi
+
+        echo "Checking task status every $every seconds. Status: $TASK_STATUS"
+
+        sleep $every
+        i=$(( $i + $every ))
+    done
+
+    if [ $RUN_TASK_SUCCESS == false ]; then
+      echo "ERROR: New task run took longer than $TIMEOUT seconds"
+      exit 1
+    fi
+  fi
+
+
+
+  echo "Task $TASK_ARN executed successfully!"
+  exit 0
+
 }
 
-function updateService() {
+function ECS_service_forceNewDeployment() {
+  _ECS_updateServiceForceNewDeployment
+  if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
+    _ECS_waitForGreenDeployment
+  fi
+  exit 0
+}
+
+function ECS_service_update() {
+  _ECS_updateService
+
+  if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
+    _ECS_waitForGreenDeployment
+  fi
+}
+
+# private functions: 'ECS' deployment controller
+function _ECS_updateService() {
     if [[ $(echo ${NEW_DEF} | jq ".containerDefinitions[0].healthCheck != null") == true ]]; then
         checkFieldName="healthStatus"
         checkFieldValue="HEALTHY"
@@ -526,7 +600,12 @@ function updateService() {
     fi
 }
 
-function waitForGreenDeployment {
+function _ECS_updateServiceForceNewDeployment() {
+    echo 'Force a new deployment of the service'
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment > /dev/null
+}
+
+function _ECS_waitForGreenDeployment {
   DEPLOYMENT_SUCCESS="false"
   every=2
   i=0
@@ -554,65 +633,6 @@ function waitForGreenDeployment {
     fi
     exit 1
   fi
-}
-
-function runTask {
-  echo "Run task: $NEW_TASKDEF";
-  AWS_ECS_RUN_TASK="$AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF"
-  if [ $RUN_TASK_LAUNCH_TYPE != false ]; then
-    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --launch-type $RUN_TASK_LAUNCH_TYPE"
-  fi
-
-  if [ $RUN_TASK_PLATFORM_VERSION != false ]; then
-    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --platform-version $RUN_TASK_PLATFORM_VERSION"
-  fi
-
-  if [ $RUN_TASK_NETWORK_CONFIGURATION != false ]; then
-    AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$RUN_TASK_NETWORK_CONFIGURATION\""
-  fi
-
-  TASK_ARN=$(eval $AWS_ECS_RUN_TASK | jq -r '.tasks[0].taskArn')
-  echo "Executed task: $TASK_ARN"
-
-  if [ $RUN_TASK_WAIT_FOR_SUCCESS == true ]; then
-    RUN_TASK_SUCCESS=false
-    every=10
-    i=0
-    while [ $i -lt $TIMEOUT ]
-    do
-
-        TASK_JSON=$($AWS_ECS describe-tasks --cluster "$CLUSTER"  --tasks "$TASK_ARN")
-
-        TASK_STATUS=$(echo $TASK_JSON | jq -r  '.tasks[0].lastStatus')
-        TASK_EXIT_CODE=$(echo $TASK_JSON | jq -r  '.tasks[0].containers[0].exitCode')
-
-        if [ $TASK_STATUS == "STOPPED" ]; then
-            echo "Task finished with status: $TASK_STATUS"
-            if [ $TASK_EXIT_CODE != 0 ]; then
-                echo "Task execution failed with exit code: $TASK_EXIT_CODE"
-                exit 1
-            fi
-            RUN_TASK_SUCCESS=true
-            break;
-        fi
-
-        echo "Checking task status every $every seconds. Status: $TASK_STATUS"
-
-        sleep $every
-        i=$(( $i + $every ))
-    done
-
-    if [ $RUN_TASK_SUCCESS == false ]; then
-      echo "ERROR: New task run took longer than $TIMEOUT seconds"
-      exit 1
-    fi
-  fi
-
-
-
-  echo "Task $TASK_ARN executed successfully!"
-  exit 0
-
 }
 
 ######################################################
@@ -771,14 +791,12 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     if [[ "$AWS_ASSUME_ROLE" != false ]]; then
         assumeRole
     fi
+    
+    initDeploymentController
 
     # Not required creation of new a task definition
     if [ $FORCE_NEW_DEPLOYMENT == true ]; then
-        updateServiceForceNewDeployment
-        if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
-          waitForGreenDeployment
-        fi
-        exit 0
+      ${DEPLOYMENT_CONTROLLER}_service_forceNewDeployment
     fi
 
     # Determine image name
@@ -803,11 +821,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         fi
         echo "Task definition updated successfully"
     else
-        updateService
-
-        if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
-          waitForGreenDeployment
-        fi
+        ${DEPLOYMENT_CONTROLLER}_service_update
     fi
 
     if [[ "$AWS_ASSUME_ROLE" != false ]]; then
