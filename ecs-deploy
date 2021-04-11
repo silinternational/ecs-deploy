@@ -425,11 +425,6 @@ function registerNewTaskDefinition() {
     fi
 }
 
-function rollback() {
-    echo "Rolling back to ${LAST_USED_TASK_DEFINITION_ARN}"
-    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $LAST_USED_TASK_DEFINITION_ARN > /dev/null
-}
-
 function runTask {
   echo "Run task: $NEW_TASKDEF";
   AWS_ECS_RUN_TASK="$AWS_ECS run-task --cluster $CLUSTER --task-definition $NEW_TASKDEF"
@@ -500,6 +495,11 @@ function CODE_DEPLOY_service_update() {
   exit 1
 }
 
+function CODE_DEPLOY_service_rollback() {
+  echo "service rollback: unsupported"
+  exit 1
+}
+
 ## EXTERNAL deployment controller
 function EXTERNAL_service_forceNewDeployment() {
   echo "force new deployment: unsupported"
@@ -508,6 +508,11 @@ function EXTERNAL_service_forceNewDeployment() {
 
 function EXTERNAL_service_update() {
   echo "service update: unsupported"
+  exit 1
+}
+
+function EXTERNAL_service_rollback() {
+  echo "service rollback: unsupported"
   exit 1
 }
 
@@ -526,6 +531,11 @@ function ECS_service_update() {
   if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
     _ECS_waitForGreenDeployment
   fi
+}
+
+function ECS_service_rollback() {
+    echo "Rolling back to ${LAST_USED_TASK_DEFINITION_ARN}"
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $LAST_USED_TASK_DEFINITION_ARN > /dev/null
 }
 
 # private functions: 'ECS' deployment controller
@@ -610,7 +620,7 @@ function _ECS_updateService() {
             # Timeout
             echo "ERROR: New task definition not running within $TIMEOUT seconds"
             if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-              rollback
+              ${DEPLOYMENT_CONTROLLER}_service_rollback
             fi
             exit 1
         fi
@@ -648,7 +658,7 @@ function _ECS_waitForGreenDeployment {
 
   if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
     if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-      rollback
+      ${DEPLOYMENT_CONTROLLER}_service_rollback
     fi
     exit 1
   fi
