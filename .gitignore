@@ -4,3 +4,5 @@ newdef
 results
 tasks
 .idea/
+.*
+!.*ignore*

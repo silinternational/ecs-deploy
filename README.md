@@ -226,6 +226,22 @@ is tested.
 
 Any new functionality and pull requests should come with tests as well (if possible).
 
+```bash
+$ git clone https://github.com/silinternational/ecs-deploy.git
+$ docker build -t ecs-deploy .
+$ docker run --rm -it -v $PWD/:/code/ --workdir=/code/ --entrypoint=bash \
+    -e AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY \
+    -e AWS_SESSION_TOKEN  ecs-deploy
+$ bash-5.1 ls
+Dockerfile             README.md              codeship-services.yml  composer.json          ecs-deploy             run-tests.sh
+LICENSE                action.yml             codeship-steps.yml     docker-compose.yml     local.env.dist         test.bats
+$ bash-5.1 ./run-tests.sh
+ok 1 check that usage() returns string and exits with status code 20
+...
+ok 35 test createNewTaskDefJson with multiple containers in definition and replace only tags
+```
+
 Github Actions Support
 -------
 Github Actions support is available.  Add a code block similar to that below to your actions yaml file.  Parameters are passed to the ecs-deploy tool under 'with' section. For each parameter, the parameter name followed by _cmd must be called with the appropriate parameter option like '--aws-access-key' in addition to supplying the parameter aws_access_key with the appropriate value.

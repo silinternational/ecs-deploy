@@ -9,10 +9,12 @@ TASK_DEFINITION_FILE=false
 MAX_DEFINITIONS=0
 AWS_ASSUME_ROLE=false
 IMAGE=false
+IMAGE_MAP=false
 MIN=false
 MAX=false
 TIMEOUT=90
 VERBOSE=false
+DRY_RUN=false
 TAGVAR=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
@@ -49,6 +51,11 @@ Required arguments:
                                  Format: [domain][:port][/repo][/][image][:tag]
                                  Examples: mariadb, mariadb:latest, silintl/mariadb,
                                            silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
+    --image-map                  Find and replace image names per container according to a map. Overrides --image
+                                 Format: "[image_str_contains1],[image1];[image_str_contains2],[image2]"
+                                 Examples: "ubuntu:18.04,ubuntu:20.04;nginx:1.18.0,nginx:1.19.9-alpine"
+                                 Replaces all images that contain "ubuntu:18.04" with "ubuntu:20.04" and all images
+                                 that contain "nginx:1.18.0" with "nginx:1.19.0-alpine"
     --aws-instance-profile       Use the IAM role associated with this instance
 
 Optional arguments:
@@ -77,6 +84,7 @@ Optional arguments:
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --copy-task-definition-tags  Copy the existing task definition tags to the new task definition revision
+    --dry-run                    Print the parsed task definition
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -172,8 +180,11 @@ function assertRequiredArgumentsSet() {
         echo "CLUSTER is required. You can pass the value using -c or --cluster"
         exit 7
     fi
+    if [ $IMAGE_MAP != false ]; then
+        IMAGE=true # Overrides --image
+    fi
     if [ $IMAGE == false ] && [ $FORCE_NEW_DEPLOYMENT == false ]; then
-        echo "IMAGE is required. You can pass the value using -i or --image"
+        echo "IMAGE or IMAGE_MAP are required. You can pass image value using -i or --image, or image map using --image-map"
         exit 8
     fi
     if ! [[ $MAX_DEFINITIONS =~ ^-?[0-9]+$ ]]; then
@@ -360,7 +371,24 @@ function createNewTaskDefJson() {
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
     # + Filter the def
-    if [[ "x$TAGONLY" == "x" ]]; then
+    if [[ "$IMAGE_MAP" != false ]]; then
+      local image_contains
+      local use_image
+      local DEF="false"     
+      IFS=';' read -r -a array_image_map <<< "$IMAGE_MAP"
+      for image_map in "${array_image_map[@]}"; do
+        image_contains="$(echo "$image_map" | cut -d"," -f1)"
+        use_image="$(echo "$image_map" | cut -d"," -f2)"
+        if [[ "$DEF" == "false" ]]; then 
+          # first image in map
+          DEF=$( sed -e 's~"image":.*'"${image_contains}"'.*,~"image": "'"${use_image}"'",~g' <<< "$taskDefinition")
+        else
+          # subsequent images in map
+          DEF=$( sed -e 's~"image":.*'"${image_contains}"'.*,~"image": "'"${use_image}"'",~g' <<< "$DEF")
+        fi
+      done
+      DEF=$(echo "$DEF" | jq '.taskDefinition')
+    elif [[ "x$TAGONLY" == "x" ]]; then
       DEF=$( echo "$taskDefinition" \
             | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
             | jq '.taskDefinition' )
@@ -398,7 +426,7 @@ function createNewTaskDefJson() {
     NEW_DEF=$(echo "$DEF" | jq "{${NEW_DEF_JQ_FILTER}}")
 
     # If in test mode output $NEW_DEF
-    if [ "$BASH_SOURCE" != "$0" ]; then
+    if [ "$BASH_SOURCE" != "$0" ] || [[ "$DRY_RUN" = "true" ]] ; then
       echo "$NEW_DEF"
     fi
 }
@@ -663,6 +691,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 IMAGE="$2"
                 shift
                 ;;
+            --image-map)
+                IMAGE_MAP="$2"
+                shift
+                ;;                
             -t|--timeout)
                 TIMEOUT="$2"
                 shift
@@ -731,6 +763,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             -v|--verbose)
                 VERBOSE=true
                 ;;
+            --dry-run)
+                DRY_RUN=true
+                ;;
             --version)
                 echo ${VERSION}
                 exit 0
@@ -766,16 +801,26 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         exit 0
     fi
 
-    # Determine image name
-    parseImageName
-    echo "Using image name: $useImage"
+    if [ "$IMAGE_MAP" != false ]; then
+      echo "Using image-map: $IMAGE_MAP"
+    else
+      # Determine single image name
+      parseImageName
+      echo "Using image name: $useImage"
+    fi
 
     # Get current task definition
     getCurrentTaskDefinition
     echo "Current task definition: $TASK_DEFINITION_ARN";
 
+
     # create new task definition json
     createNewTaskDefJson
+
+    if [ $DRY_RUN == true ]; then
+      echo "Dry run execution, stopping ..."
+      exit 0
+    fi
 
     # register new task definition
     registerNewTaskDefinition
