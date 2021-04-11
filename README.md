@@ -24,6 +24,11 @@ Usage
                                       Format: [domain][:port][/repo][/][image][:tag]
                                       Examples: mariadb, mariadb:latest, silintl/mariadb,
                                                 silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
+        --image-map                   Find and replace image names per container according to a map. Overrides --image
+                                      Format: "[image_str_contains1],[image1];[image_str_contains2],[image2]"
+                                      Examples: "ubuntu:18.04,ubuntu:20.04;nginx:1.18.0,nginx:1.19.9-alpine"
+                                      Replaces all images that contain "ubuntu:18.04" with "ubuntu:20.04" and all images
+                                      that contain "nginx:1.18.0" with "nginx:1.19.0-alpine"
 
     Optional arguments:
         -a | --aws-assume-role        ARN for AWS Role to assume for ecs-deploy operations.
