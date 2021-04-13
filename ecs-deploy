@@ -29,6 +29,9 @@ RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
 
+trap "exit 1" 10
+PROC="$$"
+
 function usage() {
     cat <<EOM
 ##### ecs-deploy #####
@@ -500,11 +503,6 @@ function CODE_DEPLOY_service_update() {
   exit 1
 }
 
-function CODE_DEPLOY_service_rollback() {
-  echo "service rollback: unsupported"
-  exit 1
-}
-
 ## EXTERNAL deployment controller
 function EXTERNAL_service_currentTaskDefinition() {
   _EXTERNAL_activeTaskSetDefinitionJson | jq -r '.taskDefinition'
@@ -520,23 +518,41 @@ function EXTERNAL_service_forceNewDeployment() {
   
   echo 'Force a new deployment of the service'
   local new_task_set_id=`$AWS_ECS create-task-set --cli-input-json "$new_task_set" | jq -rc '.taskSet.id'`
-  local pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' ) 
-  until [[ "$pending" == "0" ]]; do
-      sleep 2s
-      pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
-  done
   
-  echo 'Delete old deployment'
-  $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $current_task_set_arn > /dev/null
+  if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
+    DEPLOYMENT_SUCCESS="false"
+    every=2
+    i=0
+    echo "Waiting for service deployment to complete..."
+    while [[ $i -lt $TIMEOUT ]]; do
+      echo -n .
+      pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
+      if [[ "$pending" == "0" ]]; then
+        echo "Service deployment successful."
+        DEPLOYMENT_SUCCESS="true"
+        i=$TIMEOUT
+      else
+        sleep $every
+        i=$(( $i + $every ))
+      fi
+    done
+    
+    echo # force newline after dots
+    if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
+      if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+        echo 'Rollback: delete new deployment'
+        $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $new_task_set_id > /dev/null
+      fi
+      exit 1
+    else
+      echo 'Delete old deployment'
+      $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $current_task_set_arn > /dev/null  
+    fi
+  fi
 }
 
 function EXTERNAL_service_update() {
   echo "service update: unsupported"
-  exit 1
-}
-
-function EXTERNAL_service_rollback() {
-  echo "service rollback: unsupported"
   exit 1
 }
 
@@ -546,8 +562,8 @@ function _EXTERNAL_activeTaskSetDefinitionJson() {
     jq '.services[].taskSets | map(select(.status == "ACTIVE" and .runningCount > 0 and .pendingCount == 0))'`
   
   if [[ `echo $active_task_sets | jq -r 'length'` != "1" ]]; then
-    echo "No unique ACTIVE task set (found `echo $active_task_sets | jq -r 'length'`)"
-    exit 1
+    echo "No unique ACTIVE task set (found `echo $active_task_sets | jq -r 'length'`)" >&2
+    kill -10 $PROC
   fi
   
   echo $active_task_sets | jq -r '.[0]'
@@ -573,15 +589,9 @@ function ECS_service_forceNewDeployment() {
 
 function ECS_service_update() {
   _ECS_updateService
-
   if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
     _ECS_waitForGreenDeployment
   fi
-}
-
-function ECS_service_rollback() {
-    echo "Rolling back to ${LAST_USED_TASK_DEFINITION_ARN}"
-    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $LAST_USED_TASK_DEFINITION_ARN > /dev/null
 }
 
 # private functions: 'ECS' deployment controller
@@ -666,7 +676,7 @@ function _ECS_updateService() {
             # Timeout
             echo "ERROR: New task definition not running within $TIMEOUT seconds"
             if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-              ${DEPLOYMENT_CONTROLLER}_service_rollback
+              _ECS_service_rollback
             fi
             exit 1
         fi
@@ -704,10 +714,15 @@ function _ECS_waitForGreenDeployment {
 
   if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
     if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-      ${DEPLOYMENT_CONTROLLER}_service_rollback
+      _ECS_service_rollback
     fi
     exit 1
   fi
+}
+
+function _ECS_service_rollback() {
+    echo "Rolling back to ${LAST_USED_TASK_DEFINITION_ARN}"
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $LAST_USED_TASK_DEFINITION_ARN > /dev/null
 }
 
 ######################################################
