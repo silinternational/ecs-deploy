@@ -513,12 +513,13 @@ function EXTERNAL_service_currentTaskDefinition() {
 function EXTERNAL_service_forceNewDeployment() {
   local current_task_set=`_EXTERNAL_activeTaskSetDefinitionJson`
   local current_task_set_arn=`echo $current_task_set | jq -r '.taskSetArn'`
-  local new_task=`echo $current_task_set | \
-    jq -r '. + {cluster: "'$CLUSTER'", service: "'$SERVICE'"}' | \
-    jq -c 'del(.id,.taskSetArn,.serviceArn,.clusterArn,.status,.computedDesiredCount,.pendingCount,.runningCount,.createdAt,.updatedAt,.stabilityStatus,.stabilityStatusAt)'`
+  
+  local new_def_jq_filter="externalId: .externalId, taskDefinition: .taskDefinition, launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, serviceRegistries: .serviceRegistries, scale: .scale, tags: .tags"
+  local new_task_set=`echo $current_task_set | \
+    jq -r "{ $new_def_jq_filter } + { cluster: \"$CLUSTER\", service: \"$SERVICE\" }"`
   
   echo 'Force a new deployment of the service'
-  local new_task_set_id=`$AWS_ECS create-task-set --cli-input-json "$new_task" | jq -rc '.taskSet.id'`
+  local new_task_set_id=`$AWS_ECS create-task-set --cli-input-json "$new_task_set" | jq -rc '.taskSet.id'`
   local pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' ) 
   until [[ "$pending" == "0" ]]; do
       sleep 2s
