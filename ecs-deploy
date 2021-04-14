@@ -115,9 +115,6 @@ EOM
     exit 3
 }
 
-
-
-
 # Check requirements
 function require() {
     command -v "$1" > /dev/null 2>&1 || {
@@ -638,6 +635,7 @@ function _ECS_updateService() {
             RUNNING_TASKS=$($AWS_ECS list-tasks --cluster "$CLUSTER"  --service-name "$SERVICE" --desired-status RUNNING \
                 | jq -r '.taskArns[]')
 
+            echo -n .
             if [[ ! -z $RUNNING_TASKS ]] ; then
                 RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
                     | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.${checkFieldName}" \
@@ -672,6 +670,7 @@ function _ECS_updateService() {
             i=$(( $i + $every ))
         done
 
+        echo # force newline after dots
         if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
             # Timeout
             echo "ERROR: New task definition not running within $TIMEOUT seconds"
@@ -698,6 +697,7 @@ function _ECS_waitForGreenDeployment {
   while [ $i -lt $TIMEOUT ]
   do
     NUM_DEPLOYMENTS=$($AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq "[.services[].deployments[]] | length")
+    echo -n .
 
     # Wait to see if more than 1 deployment stays running
     # If the wait time has passed, we need to roll back
@@ -712,6 +712,7 @@ function _ECS_waitForGreenDeployment {
     fi
   done
 
+  echo # force newline after dots
   if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
     if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
       _ECS_service_rollback
