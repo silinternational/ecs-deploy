@@ -525,6 +525,7 @@ function EXTERNAL_service_forceNewDeployment() {
       echo -n .
       pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
       if [[ "$pending" == "0" ]]; then
+        echo # force newline after dots
         echo "Service deployment successful."
         DEPLOYMENT_SUCCESS="true"
         i=$TIMEOUT
@@ -534,14 +535,15 @@ function EXTERNAL_service_forceNewDeployment() {
       fi
     done
     
-    echo # force newline after dots
     if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
       if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+        echo # force newline after dots
         echo 'Rollback: delete new deployment'
         $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $new_task_set_id > /dev/null
       fi
       exit 1
     else
+      echo # force newline after dots
       echo 'Delete old deployment'
       $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $current_task_set_arn > /dev/null  
     fi
@@ -643,6 +645,7 @@ function _ECS_updateService() {
                     | grep -e "${checkFieldValue}") || :
 
                 if [ "$RUNNING" ]; then
+                    echo # force newline after dots
                     echo "Service updated successfully, new task definition running.";
 
                     if [[ $MAX_DEFINITIONS -gt 0 ]]; then
@@ -671,8 +674,8 @@ function _ECS_updateService() {
             i=$(( $i + $every ))
         done
 
-        echo # force newline after dots
         if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
+            echo # force newline after dots
             # Timeout
             echo "ERROR: New task definition not running within $TIMEOUT seconds"
             if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
@@ -703,6 +706,7 @@ function _ECS_waitForGreenDeployment {
     # Wait to see if more than 1 deployment stays running
     # If the wait time has passed, we need to roll back
     if [ $NUM_DEPLOYMENTS -eq 1 ]; then
+      echo # force newline after dots
       echo "Service deployment successful."
       DEPLOYMENT_SUCCESS="true"
       # Exit the loop.
@@ -713,9 +717,9 @@ function _ECS_waitForGreenDeployment {
     fi
   done
 
-  echo # force newline after dots
   if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
     if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+      echo # force newline after dots
       _ECS_service_rollback
     fi
     exit 1
