@@ -554,8 +554,9 @@ function EXTERNAL_service_update() {
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
 
-  echo 'Creating new canary deployment of the service'
-  local canary_task_set_id=$( _EXTERNAL_createTaskSet "\"canary\"" "25.00" "\"$NEW_TASKDEF\"" )
+  local canary_percent="25"
+  echo "Creating new canary deployment of the service ($canary_percent%)"
+  local canary_task_set_id=$( _EXTERNAL_createTaskSet "\"canary\"" $canary_percent "\"$NEW_TASKDEF\"" )
   _EXTERNAL_waitForDeployment $canary_task_set_id
   
   read -p "Proceed with rollout? " -n 1 -r
@@ -569,7 +570,7 @@ function EXTERNAL_service_update() {
   fi
   
   echo 'Creating new stable deployment of the service'
-  local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"stable\"" "100.00" "\"$NEW_TASKDEF\"" )
+  local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"stable\"" "100" "\"$NEW_TASKDEF\"" )
   _EXTERNAL_waitForDeployment $stable_task_set_id
 
   echo 'Deleting previous deployment of the service'
