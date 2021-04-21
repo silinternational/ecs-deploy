@@ -502,19 +502,15 @@ function CODE_DEPLOY_service_update() {
 
 ## EXTERNAL deployment controller
 function EXTERNAL_service_currentTaskDefinition() {
-  _EXTERNAL_activeTaskSetDefinitionJson | jq -r '.taskDefinition'
+  _EXTERNAL_activeTaskSetJson | jq -r '.taskDefinition'
 }
 
 function EXTERNAL_service_forceNewDeployment() {
-  local current_task_set=$(_EXTERNAL_activeTaskSetDefinitionJson )
+  local current_task_set=$( _EXTERNAL_activeTaskSetJson )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   
-  local new_def_jq_filter="externalId: .externalId, taskDefinition: .taskDefinition, launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, serviceRegistries: .serviceRegistries, scale: .scale, tags: .tags"
-  local new_task_set=$( echo $current_task_set | \
-                          jq -r "{ $new_def_jq_filter } + { cluster: \"$CLUSTER\", service: \"$SERVICE\" }" )
-  
   echo 'Force a new deployment of the service'
-  local new_task_set_id=$( $AWS_ECS create-task-set --cli-input-json "$new_task_set" | jq -rc '.taskSet.id' )
+  local new_task_set_id=$( _EXTERNAL_createTaskSet ".externalId" "100.00" ".taskDefinition" )
   
   if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
     DEPLOYMENT_SUCCESS="false"
@@ -539,24 +535,52 @@ function EXTERNAL_service_forceNewDeployment() {
       if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
         echo # force newline after dots
         echo 'Rollback: delete new deployment'
-        $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $new_task_set_id > /dev/null
+        _EXTERNAL_deleteTaskSet $new_task_set_id
       fi
       exit 1
     else
       echo # force newline after dots
       echo 'Delete old deployment'
-      $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $current_task_set_arn > /dev/null  
+      _EXTERNAL_deleteTaskSet $current_task_set_arn
     fi
   fi
 }
 
 function EXTERNAL_service_update() {
-  echo "service update: unsupported"
-  exit 1
+  # NEW_DEF: json
+  # NEW_TASKDEF: ARN
+
+  local current_task_set=$( _EXTERNAL_activeTaskSetJson )
+  local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
+  local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
+
+  echo 'Creating new canary deployment of the service'
+  local canary_task_set_id=$( _EXTERNAL_createTaskSet "\"canary\"" "25.00" "\"$NEW_TASKDEF\"" )
+  _EXTERNAL_waitForDeployment $canary_task_set_id
+  
+  read -p "Proceed with rollout? " -n 1 -r
+  echo    # (optional) move to a new line
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo 'Rollback: deleting canary deployment of the service'
+    _EXTERNAL_deleteTaskSet $canary_task_set_id
+    
+    echo "Done."
+    exit 0
+  fi
+  
+  echo 'Creating new stable deployment of the service'
+  local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"stable\"" "100.00" "\"$NEW_TASKDEF\"" )
+  _EXTERNAL_waitForDeployment $stable_task_set_id
+
+  echo 'Deleting previous deployment of the service'
+  _EXTERNAL_deleteTaskSet $current_task_set_id
+  
+  echo 'Deleting canary deployment of the service'
+  _EXTERNAL_deleteTaskSet $canary_task_set_id
 }
 
 # private functions: 'EXTERNAL' deployment controller
-function _EXTERNAL_activeTaskSetDefinitionJson() {
+function _EXTERNAL_activeTaskSetJson() {
   local active_task_sets=$( $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
                               jq '.services[].taskSets | map(select(.status == "ACTIVE" and .runningCount > 0 and .pendingCount == 0))' )
   
@@ -573,6 +597,51 @@ function _EXTERNAL_taskSetAsActive() {
     local ts="$1"
     $AWS_ECS describe-task-sets --cluster $CLUSTER --service $SERVICE --task-sets $ts | \
         jq -rc '.taskSets[0] | select(.status == "ACTIVE" and .runningCount > 0)'
+}
+
+function _EXTERNAL_waitForDeployment() {
+  local new_task_set_id="$1"
+  DEPLOYMENT_SUCCESS="false"
+  every=2
+  i=0
+  echo "Waiting for service deployment to complete..."
+  while [[ $i -lt $TIMEOUT ]]; do
+    echo -n .
+    pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
+    if [[ "$pending" == "0" ]]; then
+      echo # force newline after dots
+      echo "Service deployment successful."
+      DEPLOYMENT_SUCCESS="true"
+      i=$TIMEOUT
+    else
+      sleep $every
+      i=$(( $i + $every ))
+    fi
+  done
+  
+  if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
+    if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+      echo # force newline after dots
+      echo 'Rollback: delete deployment'
+      _EXTERNAL_deleteTaskSet $new_task_set_id
+    fi
+    exit 1
+  fi
+}
+
+function _EXTERNAL_deleteTaskSet() {
+  local task_set_id="$1"
+  $AWS_ECS delete-task-set --cluster $CLUSTER --service $SERVICE --task-set $task_set_id > /dev/null
+}
+
+function _EXTERNAL_createTaskSet() {
+  local external_id="$1"
+  local scale_percent="$2"
+  local task_definition="$3"
+  local new_def_jq_filter="launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, serviceRegistries: .serviceRegistries, scale: .scale, tags: .tags"
+  local new_task_set=$( echo $current_task_set | \
+                          jq -r "{ $new_def_jq_filter } + { externalId: $external_id, taskDefinition: $task_definition, "scale": { "value": $scale_percent, "unit": \"PERCENT\" }, cluster: \"$CLUSTER\", service: \"$SERVICE\" }" )
+  $AWS_ECS create-task-set --cli-input-json "$new_task_set" | jq -rc '.taskSet.id'
 }
 
 ## ECS (default) deployment controller
