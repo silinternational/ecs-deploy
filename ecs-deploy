@@ -28,6 +28,7 @@ RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
+USE_EXISTING_TASK_DEFINITION_ARN=false
 
 function usage() {
     cat <<EOM
@@ -77,6 +78,8 @@ Optional arguments:
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --copy-task-definition-tags  Copy the existing task definition tags to the new task definition revision
+    --use-existing-task-def-arn  Instead of updating the latest task definition, deploy/run this exact task definition arn.
+                                       -i/--image is not required when using this.
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -160,8 +163,8 @@ function assertRequiredArgumentsSet() {
               AWS_ECS="$AWS_ECS --profile $AWS_PROFILE"
     fi
 
-    if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITION is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
+    if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ] && [ $USE_EXISTING_TASK_DEFINITION_ARN == false ]; then
+        echo "One of SERVICE or TASK DEFINITION or USE EXISTING TASK DEFINITION ARN is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task, or --use-existing-task-def-arn to deploy a service/run a task without creating a new task definition."
         exit 5
     fi
     if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
@@ -172,7 +175,7 @@ function assertRequiredArgumentsSet() {
         echo "CLUSTER is required. You can pass the value using -c or --cluster"
         exit 7
     fi
-    if [ $IMAGE == false ] && [ $FORCE_NEW_DEPLOYMENT == false ]; then
+    if [ $IMAGE == false ] && [ $FORCE_NEW_DEPLOYMENT == false ] && [ $USE_EXISTING_TASK_DEFINITION_ARN == false ]; then
         echo "IMAGE is required. You can pass the value using -i or --image"
         exit 8
     fi
@@ -201,6 +204,10 @@ function assertRequiredArgumentsSet() {
         exit 12
     fi
 
+    if [ $USE_EXISTING_TASK_DEFINITION_ARN != false ] && [ $SERVICE == false ] && [ $RUN_TASK == false ]; then
+        echo 'USE EXISTING TASK DEFINITION ARN requires either SERVICE or RUN TASK. You can set those using -n / --service-name or --run-task.'
+        exit 13
+    fi
 }
 
 function parseImageName() {
@@ -733,6 +740,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --copy-task-definition-tags)
                 COPY_TASK_DEFINITION_TAGS=true
                 ;;
+            --use-existing-task-def-arn)
+                USE_EXISTING_TASK_DEFINITION_ARN="$2"
+                shift
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 ;;
@@ -771,20 +782,25 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         exit 0
     fi
 
-    # Determine image name
-    parseImageName
-    echo "Using image name: $useImage"
+    if [[ "$USE_EXISTING_TASK_DEFINITION_ARN" != false ]]; then
+        NEW_TASKDEF="$USE_EXISTING_TASK_DEFINITION_ARN"
+        echo "Using existing task definition: $NEW_TASKDEF"
+    else
+        # Determine image name
+        parseImageName
+        echo "Using image name: $useImage"
 
-    # Get current task definition
-    getCurrentTaskDefinition
-    echo "Current task definition: $TASK_DEFINITION_ARN";
+        # Get current task definition
+        getCurrentTaskDefinition
+        echo "Current task definition: $TASK_DEFINITION_ARN";
 
-    # create new task definition json
-    createNewTaskDefJson
+        # create new task definition json
+        createNewTaskDefJson
 
-    # register new task definition
-    registerNewTaskDefinition
-    echo "New task definition: $NEW_TASKDEF";
+        # register new task definition
+        registerNewTaskDefinition
+        echo "New task definition: $NEW_TASKDEF";
+    fi
 
     # update service if needed
     if [ $SERVICE == false ]; then
