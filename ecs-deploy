@@ -556,7 +556,11 @@ function EXTERNAL_service_update() {
 
   local canary_percent="25"
   echo "Creating new canary deployment of the service ($canary_percent%)"
-  local canary_task_set_id=$( _EXTERNAL_createTaskSet "\"canary\"" $canary_percent "\"$NEW_TASKDEF\"" )
+  local canary_task_set_id=$( _EXTERNAL_createTaskSet "\"$( _EXTERNAL_deploymentLabel canary )\"" $canary_percent "\"$NEW_TASKDEF\"" )
+
+  echo "Current deployments status"
+  _EXTERNAL_deploymentsStatus
+  
   _EXTERNAL_waitForDeployment $canary_task_set_id
   
   read -p "Proceed with rollout? " -n 1 -r
@@ -570,7 +574,7 @@ function EXTERNAL_service_update() {
   fi
   
   echo 'Creating new stable deployment of the service'
-  local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"stable\"" "100" "\"$NEW_TASKDEF\"" )
+  local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"$( _EXTERNAL_deploymentLabel stable )\"" "100" "\"$NEW_TASKDEF\"" )
   _EXTERNAL_waitForDeployment $stable_task_set_id
 
   echo 'Deleting previous deployment of the service'
@@ -578,9 +582,22 @@ function EXTERNAL_service_update() {
   
   echo 'Deleting canary deployment of the service'
   _EXTERNAL_deleteTaskSet $canary_task_set_id
+  
+  echo "Current deployments status"
+  _EXTERNAL_deploymentsStatus
 }
 
 # private functions: 'EXTERNAL' deployment controller
+function _EXTERNAL_deploymentsStatus() {
+  $AWS_ECS describe-services --cluster team-ecs01 --service team-dev-spike | \
+    jq -rc '.services[].taskSets[]' | jq -rcM '{externalId: .externalId, status: .status, desired: .computedDesiredCount, pending: .pendingCount, running: .runningCount}'
+}
+
+function _EXTERNAL_deploymentLabel() {
+  local name="$1"
+  echo "$name-$( date "+%Y%m%d-%H%M%S" )"
+}
+
 function _EXTERNAL_activeTaskSetJson() {
   local active_task_sets=$( $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
                               jq '.services[].taskSets | map(select(.status == "ACTIVE" and .runningCount > 0 and .pendingCount == 0))' )
