@@ -560,11 +560,10 @@ function EXTERNAL_service_update() {
 
   echo "Current deployments status"
   _EXTERNAL_deploymentsStatus
-  
   _EXTERNAL_waitForDeployment $canary_task_set_id || { _EXTERNAL_rollbackDeployment $new_task_set_id; exit 1; }
-  
-  read -p "Proceed with rollout? " -n 1 -r ; echo # move to a new line
-  [[ $REPLY =~ ^[Yy]$ ]] || { ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id; exit 0; }
+
+  local rollout_strategy="interactive"
+  _EXTERNAL_proceed_rollout_${rollout_strategy} || { ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id; exit 0; }
   
   echo 'Creating new stable deployment of the service'
   local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"$( _EXTERNAL_deploymentLabel stable )\"" "100" "\"$NEW_TASKDEF\"" )
@@ -581,8 +580,14 @@ function EXTERNAL_service_update() {
 }
 
 # private functions: 'EXTERNAL' deployment controller
+
+# OUT: 0 to proceed, anything else to stop
+function _EXTERNAL_proceed_rollout_interactive() {
+  read -p "Proceed with rollout? " -n 1 -r ; echo # move to a new line
+  [[ $REPLY =~ ^[Yy]$ ]]
+}
+
 function _EXTERNAL_deploymentsStatus() {
-  sleep 5 # wait a little, for status to be updated
   $AWS_ECS describe-services --cluster team-ecs01 --service team-dev-spike | \
     jq -rc '.services[].taskSets[]' | jq -rcM '{externalId: .externalId, status: .status, desired: .computedDesiredCount, pending: .pendingCount, running: .runningCount}'
 }
@@ -632,7 +637,7 @@ function _EXTERNAL_waitForDeployment() {
   done
 
   echo # force newline after dots
-  [[ "${DEPLOYMENT_SUCCESS}" == "true" ]] || exit 1
+  [[ "${DEPLOYMENT_SUCCESS}" == "true" ]]
 }
 
 function _EXTERNAL_rollbackDeployment() {
