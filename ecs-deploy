@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.1"
+VERSION="3.10.2"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -561,21 +561,14 @@ function EXTERNAL_service_update() {
   echo "Current deployments status"
   _EXTERNAL_deploymentsStatus
   
-  _EXTERNAL_waitForDeployment $canary_task_set_id
+  _EXTERNAL_waitForDeployment $canary_task_set_id || { _EXTERNAL_rollbackDeployment $new_task_set_id; exit 1; }
   
-  read -p "Proceed with rollout? " -n 1 -r
-  echo    # (optional) move to a new line
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo 'Rollback: deleting canary deployment of the service'
-    _EXTERNAL_deleteTaskSet $canary_task_set_id
-    
-    echo "Done."
-    exit 0
-  fi
+  read -p "Proceed with rollout? " -n 1 -r ; echo # move to a new line
+  [[ $REPLY =~ ^[Yy]$ ]] || { ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id; exit 0; }
   
   echo 'Creating new stable deployment of the service'
   local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"$( _EXTERNAL_deploymentLabel stable )\"" "100" "\"$NEW_TASKDEF\"" )
-  _EXTERNAL_waitForDeployment $stable_task_set_id
+  _EXTERNAL_waitForDeployment $stable_task_set_id || _EXTERNAL_rollbackDeployment $stable_task_set_id
 
   echo 'Deleting previous deployment of the service'
   _EXTERNAL_deleteTaskSet $current_task_set_id
@@ -589,6 +582,7 @@ function EXTERNAL_service_update() {
 
 # private functions: 'EXTERNAL' deployment controller
 function _EXTERNAL_deploymentsStatus() {
+  sleep 5 # wait a little, for status to be updated
   $AWS_ECS describe-services --cluster team-ecs01 --service team-dev-spike | \
     jq -rc '.services[].taskSets[]' | jq -rcM '{externalId: .externalId, status: .status, desired: .computedDesiredCount, pending: .pendingCount, running: .runningCount}'
 }
@@ -636,14 +630,16 @@ function _EXTERNAL_waitForDeployment() {
       i=$(( $i + $every ))
     fi
   done
-  
-  if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
-    if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-      echo # force newline after dots
-      echo 'Rollback: delete deployment'
-      _EXTERNAL_deleteTaskSet $new_task_set_id
-    fi
-    exit 1
+
+  echo # force newline after dots
+  [[ "${DEPLOYMENT_SUCCESS}" == "true" ]] || exit 1
+}
+
+function _EXTERNAL_rollbackDeployment() {
+  local task_set_id="$1"
+  if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+    echo 'Rollback: delete deployment'
+    _EXTERNAL_deleteTaskSet $task_set_id
   fi
 }
 
