@@ -502,11 +502,11 @@ function CODE_DEPLOY_service_update() {
 
 ## EXTERNAL deployment controller
 function EXTERNAL_service_currentTaskDefinition() {
-  _EXTERNAL_activeTaskSetJson | jq -r '.taskDefinition'
+  _EXTERNAL_primaryTaskSetJson | jq -r '.taskDefinition'
 }
 
 function EXTERNAL_service_forceNewDeployment() {
-  local current_task_set=$( _EXTERNAL_activeTaskSetJson )
+  local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   
   echo 'Force a new deployment of the service'
@@ -550,7 +550,7 @@ function EXTERNAL_service_update() {
   # NEW_DEF: json
   # NEW_TASKDEF: ARN
 
-  local current_task_set=$( _EXTERNAL_activeTaskSetJson )
+  local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
 
@@ -597,17 +597,17 @@ function _EXTERNAL_deploymentLabel() {
   echo "$name-$( date "+%Y%m%d-%H%M%S" )"
 }
 
-function _EXTERNAL_activeTaskSetJson() {
-  local active_task_sets=$( $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
+function _EXTERNAL_primaryTaskSetJson() {
+  local primary_task_sets=$( $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
                               jq '.services[].taskSets | map(select(.status == "ACTIVE" and .runningCount > 0 and .pendingCount == 0))' )
   
-  active_task_sets_count=$( echo $active_task_sets | jq -r 'length' )
-  if [[ "$active_task_sets_count" != "1" ]]; then
-    echo "No unique ACTIVE task set (found $active_task_sets_count)" >&2
+  primary_task_sets_count=$( echo $primary_task_sets | jq -r 'length' )
+  if [[ "$primary_task_sets_count" != "1" ]]; then
+    echo "No unique PRIMARY task set (found $primary_task_sets_count)" >&2
     kill -10 $PROC
   fi
   
-  echo $active_task_sets | jq -r '.[0]'
+  echo $primary_task_sets | jq -r '.[0]'
 }
 
 function _EXTERNAL_taskSetAsActive() {
