@@ -7,7 +7,7 @@ RUN apk --no-cache add ca-certificates curl bash jq py3-pip && \
 COPY ecs-deploy /ecs-deploy
 RUN chmod a+x /ecs-deploy
 
-COPY test.bats /test.bats
+COPY test /test
 COPY run-tests.sh /run-tests.sh
 RUN chmod a+x /run-tests.sh
 

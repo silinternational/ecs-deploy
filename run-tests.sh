@@ -7,4 +7,4 @@ function install_bats() {
 }
 
 command -v "bats" || install_bats
-bats test.bats
+bats test

@@ -510,7 +510,8 @@ function EXTERNAL_service_forceNewDeployment() {
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   
   echo 'Force a new deployment of the service'
-  local new_task_set_id=$( _EXTERNAL_createTaskSet "$current_task_set" ".externalId" "100.00" ".taskDefinition" )
+  local new_task_set=$( echo $current_task_set | _EXTERNAL_deploymentScaledTo 100.00 )
+  local new_task_set_id=$( _EXTERNAL_createTaskSet "$new_task_set" ".taskDefinition" )
   
   if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
     DEPLOYMENT_SUCCESS="false"
@@ -556,7 +557,8 @@ function EXTERNAL_service_update() {
 
   local canary_percent="25"
   echo "Creating new canary deployment of the service ($canary_percent%)"
-  local canary_task_set_id=$( _EXTERNAL_createTaskSet "$current_task_set" "\"$( _EXTERNAL_deploymentLabel canary )\"" $canary_percent "\"$NEW_TASKDEF\"" )
+  local canary_task_set=$( echo $current_task_set | _EXTERNAL_deploymentScaledTo $canary_percent | _EXTERNAL_deploymentLabeledTo canary )
+  local canary_task_set_id=$( _EXTERNAL_createTaskSet "$canary_task_set" "\"$NEW_TASKDEF\"" )
 
   echo "Current deployments status"
   _EXTERNAL_deploymentsStatus
@@ -566,7 +568,8 @@ function EXTERNAL_service_update() {
   _EXTERNAL_proceed_rollout_${rollout_strategy} || { ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id; exit 0; }
   
   echo 'Creating new stable deployment of the service'
-  local stable_task_set_id=$( _EXTERNAL_createTaskSet "$current_task_set" "\"$( _EXTERNAL_deploymentLabel stable )\"" "100" "\"$NEW_TASKDEF\"" )
+  local stable_task_set=$( echo $current_task_set | _EXTERNAL_deploymentScaledTo 100 | _EXTERNAL_deploymentLabeledTo stable )
+  local stable_task_set_id=$( _EXTERNAL_createTaskSet "$stable_task_set" "\"$NEW_TASKDEF\"" )
   _EXTERNAL_waitForDeployment $stable_task_set_id || _EXTERNAL_rollbackDeployment $stable_task_set_id
 
   echo 'Deleting previous deployment of the service'
@@ -580,6 +583,15 @@ function EXTERNAL_service_update() {
 }
 
 # private functions: 'EXTERNAL' deployment controller
+function _EXTERNAL_deploymentScaledTo() {
+  local scale="$1"
+  jq -rc ".scale.value=$scale"
+}
+
+function _EXTERNAL_deploymentLabeledTo() {
+  local label="$1-$( date "+%Y%m%d-%H%M%S" )"
+  jq -rc ".externalId=\"$label\""
+}
 
 # OUT: 0 to proceed, anything else to stop
 function _EXTERNAL_proceed_rollout_interactive() {
@@ -590,11 +602,6 @@ function _EXTERNAL_proceed_rollout_interactive() {
 function _EXTERNAL_deploymentsStatus() {
   $AWS_ECS describe-services --cluster team-ecs01 --service team-dev-spike | \
     jq -rc '.services[].taskSets[]' | jq -rcM '{externalId: .externalId, status: .status, desired: .computedDesiredCount, pending: .pendingCount, running: .runningCount}'
-}
-
-function _EXTERNAL_deploymentLabel() {
-  local name="$1"
-  echo "$name-$( date "+%Y%m%d-%H%M%S" )"
 }
 
 function _EXTERNAL_primaryTaskSetJson() {
@@ -654,13 +661,12 @@ function _EXTERNAL_deleteTaskSet() {
 }
 
 function _EXTERNAL_createTaskSet() {
-  local current_task_set="$1"
-  local external_id="$2"
-  local scale_percent="$3"
-  local task_definition="$4"
-  local new_def_jq_filter="launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, serviceRegistries: .serviceRegistries, scale: .scale, tags: .tags"
-  local new_task_set=$( echo $current_task_set | \
-                          jq -r "{ $new_def_jq_filter } + { externalId: $external_id, taskDefinition: $task_definition, "scale": { "value": $scale_percent, "unit": \"PERCENT\" }, cluster: \"$CLUSTER\", service: \"$SERVICE\" }" )
+  local target_task_set="$1"
+  local task_definition="$2"
+  
+  local new_def_jq_filter="externalId: .externalId, launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, serviceRegistries: .serviceRegistries, scale: .scale, tags: .tags"
+  local new_task_set=$( echo $target_task_set | \
+                          jq -r "{ $new_def_jq_filter } + { taskDefinition: $task_definition, cluster: \"$CLUSTER\", service: \"$SERVICE\" }" )
   $AWS_ECS create-task-set --cli-input-json "$new_task_set" | jq -rc '.taskSet.id'
 }
 
