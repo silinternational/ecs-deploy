@@ -510,7 +510,7 @@ function EXTERNAL_service_forceNewDeployment() {
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   
   echo 'Force a new deployment of the service'
-  local new_task_set_id=$( _EXTERNAL_createTaskSet ".externalId" "100.00" ".taskDefinition" )
+  local new_task_set_id=$( _EXTERNAL_createTaskSet "$current_task_set" ".externalId" "100.00" ".taskDefinition" )
   
   if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
     DEPLOYMENT_SUCCESS="false"
@@ -556,7 +556,7 @@ function EXTERNAL_service_update() {
 
   local canary_percent="25"
   echo "Creating new canary deployment of the service ($canary_percent%)"
-  local canary_task_set_id=$( _EXTERNAL_createTaskSet "\"$( _EXTERNAL_deploymentLabel canary )\"" $canary_percent "\"$NEW_TASKDEF\"" )
+  local canary_task_set_id=$( _EXTERNAL_createTaskSet "$current_task_set" "\"$( _EXTERNAL_deploymentLabel canary )\"" $canary_percent "\"$NEW_TASKDEF\"" )
 
   echo "Current deployments status"
   _EXTERNAL_deploymentsStatus
@@ -566,7 +566,7 @@ function EXTERNAL_service_update() {
   _EXTERNAL_proceed_rollout_${rollout_strategy} || { ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id; exit 0; }
   
   echo 'Creating new stable deployment of the service'
-  local stable_task_set_id=$( _EXTERNAL_createTaskSet "\"$( _EXTERNAL_deploymentLabel stable )\"" "100" "\"$NEW_TASKDEF\"" )
+  local stable_task_set_id=$( _EXTERNAL_createTaskSet "$current_task_set" "\"$( _EXTERNAL_deploymentLabel stable )\"" "100" "\"$NEW_TASKDEF\"" )
   _EXTERNAL_waitForDeployment $stable_task_set_id || _EXTERNAL_rollbackDeployment $stable_task_set_id
 
   echo 'Deleting previous deployment of the service'
@@ -654,9 +654,10 @@ function _EXTERNAL_deleteTaskSet() {
 }
 
 function _EXTERNAL_createTaskSet() {
-  local external_id="$1"
-  local scale_percent="$2"
-  local task_definition="$3"
+  local current_task_set="$1"
+  local external_id="$2"
+  local scale_percent="$3"
+  local task_definition="$4"
   local new_def_jq_filter="launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, serviceRegistries: .serviceRegistries, scale: .scale, tags: .tags"
   local new_task_set=$( echo $current_task_set | \
                           jq -r "{ $new_def_jq_filter } + { externalId: $external_id, taskDefinition: $task_definition, "scale": { "value": $scale_percent, "unit": \"PERCENT\" }, cluster: \"$CLUSTER\", service: \"$SERVICE\" }" )
