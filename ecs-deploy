@@ -522,42 +522,25 @@ function EXTERNAL_service_currentTaskDefinition() {
 function EXTERNAL_service_forceNewDeployment() {
   local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
+  local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
   
   echo 'Force a new deployment of the service'
   local new_task_set_id=$( _EXTERNAL_createTaskSet "$current_task_set" )
   
-  if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
-    DEPLOYMENT_SUCCESS="false"
-    every=2
-    i=0
-    echo "Waiting ${TIMEOUT}s for service deployment to complete..."
-    while [[ $i -lt $TIMEOUT ]]; do
-      echo -n .
-      pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
-      if [[ "$pending" == "0" ]]; then
-        echo # force newline after dots
-        echo "Service deployment successful."
-        DEPLOYMENT_SUCCESS="true"
-        i=$TIMEOUT
-      else
-        sleep $every
-        i=$(( $i + $every ))
-      fi
-    done
-    
-    if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
-      if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-        echo # force newline after dots
-        echo 'Rollback: delete new deployment'
-        _EXTERNAL_deleteTaskSet $new_task_set_id
-      fi
-      exit 1
-    else
-      echo # force newline after dots
-      echo 'Delete old deployment'
-      _EXTERNAL_deleteTaskSet $current_task_set_arn
-    fi
-  fi
+  echo "Current deployments"
+  _EXTERNAL_deploymentsStatus
+  
+  _EXTERNAL_waitForDeployment $new_task_set_id || {
+    echo "Timeout expired!"
+    _EXTERNAL_rollbackDeployment $new_task_set_id;
+    exit 1;
+  }
+  
+  echo 'Deleting previous deployment of the service'
+  _EXTERNAL_deleteTaskSet $current_task_set_id
+  
+  echo "Current deployments"
+  _EXTERNAL_deploymentsStatus
 }
 
 function EXTERNAL_service_update() {
