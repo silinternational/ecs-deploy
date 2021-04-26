@@ -56,7 +56,7 @@ setup() {
 }
 
 @test "test _EXTERNAL_deploymentScaledTo given percent" {
-  local output=$( echo "$TASK_SET" | _EXTERNAL_deploymentScaledTo 30 )
+  local output=$( echo "$TASK_SET" | _EXTERNAL_deploymentScaledTo 30.0 )
 
   [ "$( echo $output | jq -cr '.scale' )" == "{\"value\":30,\"unit\":\"PERCENT\"}" ]
 }
@@ -64,6 +64,11 @@ setup() {
 @test "test _EXTERNAL_deploymentLabeledTo given label" {
   local output=$( echo "$TASK_SET" | _EXTERNAL_deploymentLabeledTo canary )
 
-  echo "$output"
   [[ "$( echo $output | jq -cr '.externalId' )" =~ 'canary-' ]]
+}
+
+@test "test _EXTERNAL_deploymentTargetingTaskDefinition given definition" {
+  local output=$( echo "$TASK_SET" | _EXTERNAL_deploymentTargetingTaskDefinition "arn:aws:ecs:us-east-1:777:task-definition/my-spike:99" )
+
+  [[ "$( echo $output | jq -cr '.taskDefinition' )" == 'arn:aws:ecs:us-east-1:777:task-definition/my-spike:99' ]]
 }
