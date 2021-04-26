@@ -29,7 +29,7 @@ RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
 CANARY_PERCENT=25
-CANARY_CONFIRMATIONS=( "interactive" "wait_timeout" )
+CANARY_CONFIRMATIONS=( "interactive" "wait_timeout" "proceed" )
 CANARY_CONFIRMATION=${CANARY_CONFIRMATIONS[0]}
 
 
@@ -530,7 +530,7 @@ function EXTERNAL_service_forceNewDeployment() {
     DEPLOYMENT_SUCCESS="false"
     every=2
     i=0
-    echo "Waiting for service deployment to complete..."
+    echo "Waiting ${TIMEOUT}s for service deployment to complete..."
     while [[ $i -lt $TIMEOUT ]]; do
       echo -n .
       pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
@@ -564,9 +564,6 @@ function EXTERNAL_service_update() {
   # NEW_DEF: json
   # NEW_TASKDEF: ARN
 
-  local canary_percent="$CANARY_PERCENT" #"25"
-  local canary_confirmation="$CANARY_CONFIRMATION" #"interactive"
-
   local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
@@ -574,7 +571,7 @@ function EXTERNAL_service_update() {
   echo "Creating new canary deployment of the service"
   local canary_task_set=$( echo $current_task_set | \
                               _EXTERNAL_deploymentLabeledTo canary | \
-                              _EXTERNAL_deploymentScaledTo $canary_percent | \
+                              _EXTERNAL_deploymentScaledTo $CANARY_PERCENT | \
                               _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
   local canary_task_set_id=$( _EXTERNAL_createTaskSet "$canary_task_set" )
   
@@ -582,11 +579,12 @@ function EXTERNAL_service_update() {
   _EXTERNAL_deploymentsStatus
 
   _EXTERNAL_waitForDeployment $canary_task_set_id || {
+    echo "Timeout expired!"
     _EXTERNAL_rollbackDeployment $canary_task_set_id;
     exit 1;
   }
 
-  _EXTERNAL_rollout_confirm_${canary_confirmation} || {
+  _EXTERNAL_rollout_confirm_${CANARY_CONFIRMATION} || {
     ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id;
     echo "Current deployments"; _EXTERNAL_deploymentsStatus;
     exit 0; 
@@ -598,7 +596,10 @@ function EXTERNAL_service_update() {
                               _EXTERNAL_deploymentScaledTo 100 | \
                               _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
   local stable_task_set_id=$( _EXTERNAL_createTaskSet "$stable_task_set" )
-  _EXTERNAL_waitForDeployment $stable_task_set_id || _EXTERNAL_rollbackDeployment $stable_task_set_id
+  _EXTERNAL_waitForDeployment $stable_task_set_id || {
+    echo "Timeout expired!"
+    _EXTERNAL_rollbackDeployment $stable_task_set_id;
+  }
 
   echo 'Deleting previous (stable) deployment of the service'
   _EXTERNAL_deleteTaskSet $current_task_set_id
@@ -655,7 +656,7 @@ function _EXTERNAL_waitForDeployment() {
   DEPLOYMENT_SUCCESS="false"
   every=2
   i=0
-  echo "Waiting for service deployment to complete..."
+  echo "Waiting ${TIMEOUT}s for service deployment to complete..."
   while [[ $i -lt $TIMEOUT ]]; do
     echo -n .
     pending=$( _EXTERNAL_taskSetAsActive $new_task_set_id | jq -rc '.pendingCount' )
@@ -706,7 +707,7 @@ function _EXTERNAL_rollout_confirm_interactive() {
 function _EXTERNAL_rollout_confirm_wait_timeout() {
   every=1
   i=0
-  echo "Waiting $TIMEOUT before confirming rollout"
+  echo "Waiting ${TIMEOUT}s before confirming rollout..."
   while [[ $i -lt $TIMEOUT ]]; do
     echo -n .
     sleep $every
@@ -714,6 +715,10 @@ function _EXTERNAL_rollout_confirm_wait_timeout() {
   done
 
   echo # force newline after dots
+}
+
+function _EXTERNAL_rollout_confirm_proceed() {
+  return 0
 }
 
 ## ECS (default) deployment controller
@@ -838,7 +843,7 @@ function _ECS_waitForGreenDeployment {
   DEPLOYMENT_SUCCESS="false"
   every=2
   i=0
-  echo "Waiting for service deployment to complete..."
+  echo "Waiting ${TIMEOUT}s for service deployment to complete..."
   while [ $i -lt $TIMEOUT ]
   do
     NUM_DEPLOYMENTS=$($AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq "[.services[].deployments[]] | length")
