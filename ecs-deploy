@@ -28,6 +28,10 @@ RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
+CANARY_PERCENT=25
+CANARY_CONFIRMATIONS=( "interactive" "wait_timeout" )
+CANARY_CONFIRMATION=${CANARY_CONFIRMATIONS[0]}
+
 
 trap "exit 1" 10
 PROC="$$"
@@ -80,6 +84,9 @@ Optional arguments:
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --copy-task-definition-tags  Copy the existing task definition tags to the new task definition revision
+    --canary-percent             (EXTERNAL deployment only) Size for canary deployment (default: $CANARY_PERCENT)
+    --canary-confirmation        (EXTERNAL deployment only) Strategy for confirming deployment from canary to stable.
+                                       Supported: ${CANARY_CONFIRMATIONS[@]}. (default: $CANARY_CONFIRMATION).
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -199,6 +206,13 @@ function assertRequiredArgumentsSet() {
         exit 12
     fi
 
+}
+
+function assertOptionaArgumentsValid() {
+    if [[ ! " ${CANARY_CONFIRMATIONS[@]} " =~ " ${CANARY_CONFIRMATION} " ]]; then
+        echo "Unsupported canary confirmation $CANARY_CONFIRMATION. Supported values: ${CANARY_CONFIRMATIONS[@]}"
+        exit 1
+    fi
 }
 
 function initDeploymentController() {
@@ -550,12 +564,14 @@ function EXTERNAL_service_update() {
   # NEW_DEF: json
   # NEW_TASKDEF: ARN
 
+  local canary_percent="$CANARY_PERCENT" #"25"
+  local canary_confirmation="$CANARY_CONFIRMATION" #"interactive"
+
   local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
 
   echo "Creating new canary deployment of the service"
-  local canary_percent="25"
   local canary_task_set=$( echo $current_task_set | \
                               _EXTERNAL_deploymentLabeledTo canary | \
                               _EXTERNAL_deploymentScaledTo $canary_percent | \
@@ -566,12 +582,11 @@ function EXTERNAL_service_update() {
   _EXTERNAL_deploymentsStatus
 
   _EXTERNAL_waitForDeployment $canary_task_set_id || {
-    _EXTERNAL_rollbackDeployment $new_task_set_id;
+    _EXTERNAL_rollbackDeployment $canary_task_set_id;
     exit 1;
   }
 
-  local rollout_strategy="interactive"
-  _EXTERNAL_proceed_rollout_${rollout_strategy} || {
+  _EXTERNAL_rollout_confirm_${canary_confirmation} || {
     ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id;
     echo "Current deployments"; _EXTERNAL_deploymentsStatus;
     exit 0; 
@@ -609,13 +624,6 @@ function _EXTERNAL_deploymentLabeledTo() {
 function _EXTERNAL_deploymentTargetingTaskDefinition() {
   local arn="$1"
   jq -rc ".taskDefinition=\"$arn\""
-}
-
-function _EXTERNAL_proceed_rollout_interactive() {
-  # OUT: 0 to proceed, anything else to stop
-
-  read -p "Proceed with rollout? " -n 1 -r ; echo # move to a new line
-  [[ $REPLY =~ ^[Yy]$ ]]
 }
 
 function _EXTERNAL_deploymentsStatus() {
@@ -685,6 +693,27 @@ function _EXTERNAL_createTaskSet() {
   local new_task_set=$( echo $original_task_set | \
                           jq -r "{ $new_def_jq_filter } + { cluster: \"$CLUSTER\", service: \"$SERVICE\" }" )
   $AWS_ECS create-task-set --cli-input-json "$new_task_set" | jq -rc '.taskSet.id'
+}
+
+# EXTERNAL rollout strategies
+# return: 0 to proceed, anything else to stop
+
+function _EXTERNAL_rollout_confirm_interactive() {
+  read -p "Proceed with rollout? " -n 1 -r ; echo # move to a new line
+  [[ $REPLY =~ ^[Yy]$ ]]
+}
+
+function _EXTERNAL_rollout_confirm_wait_timeout() {
+  every=1
+  i=0
+  echo "Waiting $TIMEOUT before confirming rollout"
+  while [[ $i -lt $TIMEOUT ]]; do
+    echo -n .
+    sleep $every
+    i=$(( $i + $every ))
+  done
+
+  echo # force newline after dots
 }
 
 ## ECS (default) deployment controller
@@ -970,6 +999,14 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --copy-task-definition-tags)
                 COPY_TASK_DEFINITION_TAGS=true
                 ;;
+            --canary-percent)
+                CANARY_PERCENT="$2"
+                shift
+                ;;
+            --canary-confirmation)
+                CANARY_CONFIRMATION="$2"
+                shift
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 ;;
@@ -995,6 +1032,8 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
     # Check that required arguments are provided
     assertRequiredArgumentsSet
+
+    assertOptionaArgumentsValid
 
     if [[ "$AWS_ASSUME_ROLE" != false ]]; then
         assumeRole
