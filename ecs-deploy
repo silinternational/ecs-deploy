@@ -555,30 +555,37 @@ function EXTERNAL_service_update() {
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
 
+  echo "Creating new canary deployment of the service"
   local canary_percent="25"
-  echo "Creating new canary deployment of the service ($canary_percent%)"
   local canary_task_set=$( echo $current_task_set | _EXTERNAL_deploymentScaledTo $canary_percent | _EXTERNAL_deploymentLabeledTo canary )
   local canary_task_set_id=$( _EXTERNAL_createTaskSet "$canary_task_set" "\"$NEW_TASKDEF\"" )
-
-  echo "Current deployments status"
+  
+  echo "Current deployments"
   _EXTERNAL_deploymentsStatus
-  _EXTERNAL_waitForDeployment $canary_task_set_id || { _EXTERNAL_rollbackDeployment $new_task_set_id; exit 1; }
+  _EXTERNAL_waitForDeployment $canary_task_set_id || {
+    _EXTERNAL_rollbackDeployment $new_task_set_id;
+    exit 1;
+  }
 
   local rollout_strategy="interactive"
-  _EXTERNAL_proceed_rollout_${rollout_strategy} || { ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id; exit 0; }
+  _EXTERNAL_proceed_rollout_${rollout_strategy} || {
+    ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id;
+    echo "Current deployments"; _EXTERNAL_deploymentsStatus;
+    exit 0; 
+  }
   
   echo 'Creating new stable deployment of the service'
-  local stable_task_set=$( echo $current_task_set | _EXTERNAL_deploymentScaledTo 100 | _EXTERNAL_deploymentLabeledTo stable )
+  local stable_task_set=$( echo $canary_task_set | _EXTERNAL_deploymentScaledTo 100 | _EXTERNAL_deploymentLabeledTo stable )
   local stable_task_set_id=$( _EXTERNAL_createTaskSet "$stable_task_set" "\"$NEW_TASKDEF\"" )
   _EXTERNAL_waitForDeployment $stable_task_set_id || _EXTERNAL_rollbackDeployment $stable_task_set_id
 
-  echo 'Deleting previous deployment of the service'
+  echo 'Deleting previous (stable) deployment of the service'
   _EXTERNAL_deleteTaskSet $current_task_set_id
   
   echo 'Deleting canary deployment of the service'
   _EXTERNAL_deleteTaskSet $canary_task_set_id
   
-  echo "Current deployments status"
+  echo "Current deployments"
   _EXTERNAL_deploymentsStatus
 }
 
@@ -600,8 +607,8 @@ function _EXTERNAL_proceed_rollout_interactive() {
 }
 
 function _EXTERNAL_deploymentsStatus() {
-  $AWS_ECS describe-services --cluster team-ecs01 --service team-dev-spike | \
-    jq -rc '.services[].taskSets[]' | jq -rcM '{externalId: .externalId, status: .status, desired: .computedDesiredCount, pending: .pendingCount, running: .runningCount}'
+  $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
+    jq -rc '.services[].taskSets[]' | jq -rcM '{externalId: .externalId, status: .status, scale: .scale, desired: .computedDesiredCount, pending: .pendingCount, running: .runningCount}'
 }
 
 function _EXTERNAL_primaryTaskSetJson() {
