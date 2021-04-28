@@ -88,7 +88,7 @@ Optional arguments:
     --task-set-file              (EXTERNAL deployment only) File used as task set to deploy.
     --canary-percent             (EXTERNAL deployment only) Size for canary deployment (default: $CANARY_PERCENT).
     --canary-confirmation        (EXTERNAL deployment only) Strategy for confirming deployment from canary to stable.
-                                       Supported: ${CANARY_CONFIRMATIONS[@]}. (default: $CANARY_CONFIRMATION).
+                                       Supported: ${CANARY_CONFIRMATIONS[@]}, or path to any existing script. (default: $CANARY_CONFIRMATION).
     -v | --verbose               Verbose output
          --version               Display the version
 
@@ -211,7 +211,10 @@ function assertRequiredArgumentsSet() {
 }
 
 function assertOptionaArgumentsValid() {
-    if [[ ! " ${CANARY_CONFIRMATIONS[@]} " =~ " ${CANARY_CONFIRMATION} " ]]; then
+    if [[ -f "$CANARY_CONFIRMATION" ]]; then
+        echo "Canary confirmation: $CANARY_CONFIRMATION"
+        CANARY_CONFIRMATION="custom $CANARY_CONFIRMATION"
+    elif [[ ! " ${CANARY_CONFIRMATIONS[@]} " =~ " ${CANARY_CONFIRMATION} " ]]; then
         echo "Unsupported canary confirmation $CANARY_CONFIRMATION. Supported values: ${CANARY_CONFIRMATIONS[@]}"
         exit 1
     fi
@@ -715,6 +718,10 @@ function _EXTERNAL_rollout_confirm_wait_timeout() {
 
 function _EXTERNAL_rollout_confirm_proceed() {
   return 0
+}
+
+function _EXTERNAL_rollout_confirm_custom() {
+  $*
 }
 
 ## ECS (default) deployment controller
