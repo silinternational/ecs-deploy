@@ -53,7 +53,7 @@ Usage
         --task-set-file              (EXTERNAL deployment only) File used as task set to deploy.
         --canary-percent             (EXTERNAL deployment only) Size for canary deployment (default: $CANARY_PERCENT).
         --canary-confirmation        (EXTERNAL deployment only) Strategy for confirming deployment from canary to stable.
-                                          Supported: interactive wait_timeout proceed. (default: interactive).
+                                          Supported: interactive wait_timeout proceed, or path to any existing script. (default: interactive).
         -v | --verbose                Verbose output
              --version                Display the version
 

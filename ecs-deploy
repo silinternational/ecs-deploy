@@ -215,7 +215,7 @@ function assertOptionaArgumentsValid() {
         echo "Canary confirmation: $CANARY_CONFIRMATION"
         CANARY_CONFIRMATION="custom $CANARY_CONFIRMATION"
     elif [[ ! " ${CANARY_CONFIRMATIONS[@]} " =~ " ${CANARY_CONFIRMATION} " ]]; then
-        echo "Unsupported canary confirmation $CANARY_CONFIRMATION. Supported values: ${CANARY_CONFIRMATIONS[@]}"
+        echo "Unsupported canary confirmation $CANARY_CONFIRMATION. Supported values: ${CANARY_CONFIRMATIONS[@]}, or path to any existing script"
         exit 1
     fi
 }
