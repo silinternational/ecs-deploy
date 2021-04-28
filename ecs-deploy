@@ -212,11 +212,11 @@ function assertRequiredArgumentsSet() {
 
 function assertOptionaArgumentsValid() {
     if [[ -f "$CANARY_CONFIRMATION" ]]; then
-        echo "Canary confirmation: $CANARY_CONFIRMATION"
-        CANARY_CONFIRMATION="custom $CANARY_CONFIRMATION"
+      # prepare _custom canary confirmation exectuion, with script as argument
+      CANARY_CONFIRMATION="custom $CANARY_CONFIRMATION"
     elif [[ ! " ${CANARY_CONFIRMATIONS[@]} " =~ " ${CANARY_CONFIRMATION} " ]]; then
-        echo "Unsupported canary confirmation $CANARY_CONFIRMATION. Supported values: ${CANARY_CONFIRMATIONS[@]}, or path to any existing script"
-        exit 1
+      echo "Unsupported canary confirmation $CANARY_CONFIRMATION. Supported values: ${CANARY_CONFIRMATIONS[@]}, or path to any existing script"
+      exit 1
     fi
 }
 
@@ -349,6 +349,12 @@ function parseImageName() {
 
 function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
+      
+      if [ `${DEPLOYMENT_CONTROLLER}_service_hasTaskDefinition` == "false" ]; then
+        TASK_DEFINITION_ARN=""
+        return 0
+      fi
+      
       # Get current task definition arn from service
       TASK_DEFINITION_ARN=`${DEPLOYMENT_CONTROLLER}_service_currentTaskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
@@ -365,6 +371,7 @@ function getCurrentTaskDefinition() {
     elif [ $TASK_DEFINITION != false ]; then
       # Get current task definition arn from family[:revision] (or arn)
       TASK_DEFINITION_ARN=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION | jq -r .taskDefinition.taskDefinitionArn`
+      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
     fi
 
     # Get task definition using current task definition arn
@@ -372,8 +379,6 @@ function getCurrentTaskDefinition() {
     if [[ "$COPY_TASK_DEFINITION_TAGS" == true ]]; then
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN --include TAGS`
       TASK_DEFINITION_TAGS=$( echo "$TASK_DEFINITION" | jq ".tags" )
-    else
-      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
     fi
 }
 
@@ -504,6 +509,11 @@ function runTask {
 }
 
 ## CODE_DEPLOY deployment controller: unsupported
+function CODE_DEPLOY_service_hasTaskDefinition() {
+  echo "service hash task definition: unsupported"
+  exit 1
+}
+
 function CODE_DEPLOY_service_currentTaskDefinition() {
   echo "service current task definition: unsupported"
   exit 1
@@ -520,12 +530,24 @@ function CODE_DEPLOY_service_update() {
 }
 
 ## EXTERNAL deployment controller
+function EXTERNAL_service_hasTaskDefinition() {
+  local active_task_sets_count=$( _EXTERNAL_activeTasksSet | jq -r 'length' )
+  if [[ "$active_task_sets_count" == "0" ]]; then
+    echo "false"
+  elif [[ "$active_task_sets_count" == "1" ]]; then
+    echo "true"
+  else
+    echo "No PRIMARY task set (found $active_task_sets_count active)" >&2
+    kill -10 $PROC
+  fi
+}
+
 function EXTERNAL_service_currentTaskDefinition() {
-  _EXTERNAL_primaryTaskSetJson | jq -r '.taskDefinition'
+  _EXTERNAL_activeTasksSet | jq -r '.[0]' | jq -r '.taskDefinition'
 }
 
 function EXTERNAL_service_forceNewDeployment() {
-  local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
+  local current_task_set=$( _EXTERNAL_activeTasksSet | jq -r '.[0]' )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
   
@@ -552,52 +574,70 @@ function EXTERNAL_service_update() {
   # NEW_DEF: json
   # NEW_TASKDEF: ARN
   local target_task_set=$( _EXTERNAL_taskSetDefinitionJson )
-
-  local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
-  local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
-  local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
-
-  echo "Creating new canary deployment of the service"
-  local canary_task_set=$( echo $target_task_set | \
-                              _EXTERNAL_deploymentLabeledTo canary | \
-                              _EXTERNAL_deploymentScaledTo $CANARY_PERCENT | \
-                              _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
-  local canary_task_set_id=$( _EXTERNAL_createTaskSet "$canary_task_set" )
+  local active_task_sets=$( _EXTERNAL_activeTasksSet )
   
-  echo "Current deployments"
-  _EXTERNAL_deploymentsStatus
+  if [[ $( echo $active_task_sets | jq -r 'length' ) == "0" ]]; then
+    echo 'Creating new PRIMARY deployment of the service'
+    local primary_task_set=$( echo $target_task_set | \
+                                _EXTERNAL_deploymentLabeledTo stable | \
+                                _EXTERNAL_deploymentScaledTo 100 | \
+                                _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
+    local primary_task_set_id=$( _EXTERNAL_createTaskSet "$primary_task_set" )
+    
+    echo "Current deployments"
+    _EXTERNAL_deploymentsStatus
+    
+    _EXTERNAL_waitForDeployment $primary_task_set_id || {
+      echo "Timeout expired!"
+      _EXTERNAL_rollbackDeployment $primary_task_set_id;
+    }
+  else
+    local current_task_set=$( echo $active_task_sets | jq -r '.[0]' )
+    local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
+    local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
 
-  _EXTERNAL_waitForDeployment $canary_task_set_id || {
-    echo "Timeout expired!"
-    _EXTERNAL_rollbackDeployment $canary_task_set_id;
-    exit 1;
-  }
+    echo "Creating new canary deployment of the service"
+    local canary_task_set=$( echo $target_task_set | \
+                                _EXTERNAL_deploymentLabeledTo canary | \
+                                _EXTERNAL_deploymentScaledTo $CANARY_PERCENT | \
+                                _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
+    local canary_task_set_id=$( _EXTERNAL_createTaskSet "$canary_task_set" )
+  
+    echo "Current deployments"
+    _EXTERNAL_deploymentsStatus
 
-  _EXTERNAL_rollout_confirm_${CANARY_CONFIRMATION} || {
-    ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id;
-    echo "Current deployments"; _EXTERNAL_deploymentsStatus;
-    exit 0; 
-  }
-  
-  echo 'Creating new stable deployment of the service'
-  local stable_task_set=$( echo $canary_task_set | \
-                              _EXTERNAL_deploymentLabeledTo stable | \
-                              _EXTERNAL_deploymentScaledTo 100 | \
-                              _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
-  local stable_task_set_id=$( _EXTERNAL_createTaskSet "$stable_task_set" )
-  _EXTERNAL_waitForDeployment $stable_task_set_id || {
-    echo "Timeout expired!"
-    _EXTERNAL_rollbackDeployment $stable_task_set_id;
-  }
+    _EXTERNAL_waitForDeployment $canary_task_set_id || {
+      echo "Timeout expired!"
+      _EXTERNAL_rollbackDeployment $canary_task_set_id;
+      exit 1;
+    }
 
-  echo 'Deleting previous (stable) deployment of the service'
-  _EXTERNAL_deleteTaskSet $current_task_set_id
+    _EXTERNAL_rollout_confirm_${CANARY_CONFIRMATION} || {
+      ENABLE_ROLLBACK=true _EXTERNAL_rollbackDeployment $canary_task_set_id;
+      echo "Current deployments"; _EXTERNAL_deploymentsStatus;
+      exit 0; 
+    }
   
-  echo 'Deleting canary deployment of the service'
-  _EXTERNAL_deleteTaskSet $canary_task_set_id
+    echo 'Creating new stable deployment of the service'
+    local stable_task_set=$( echo $canary_task_set | \
+                                _EXTERNAL_deploymentLabeledTo stable | \
+                                _EXTERNAL_deploymentScaledTo 100 | \
+                                _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
+    local stable_task_set_id=$( _EXTERNAL_createTaskSet "$stable_task_set" )
+    _EXTERNAL_waitForDeployment $stable_task_set_id || {
+      echo "Timeout expired!"
+      _EXTERNAL_rollbackDeployment $stable_task_set_id;
+    }
+
+    echo 'Deleting previous (stable) deployment of the service'
+    _EXTERNAL_deleteTaskSet $current_task_set_id
   
-  echo "Current deployments"
-  _EXTERNAL_deploymentsStatus
+    echo 'Deleting canary deployment of the service'
+    _EXTERNAL_deleteTaskSet $canary_task_set_id
+  
+    echo "Current deployments"
+    _EXTERNAL_deploymentsStatus
+  fi
 }
 
 # private functions: 'EXTERNAL' deployment controller
@@ -618,7 +658,7 @@ function _EXTERNAL_deploymentTargetingTaskDefinition() {
 
 function _EXTERNAL_taskSetDefinitionJson() {
   if [ $TASK_SET_FILE == false ]; then
-      echo "$( _EXTERNAL_primaryTaskSetJson )"
+      echo "$( _EXTERNAL_activeTasksSet | jq -r '.[0]' )"
   else
       echo "$(cat $TASK_SET_FILE)"
   fi
@@ -629,17 +669,9 @@ function _EXTERNAL_deploymentsStatus() {
     jq -rc '.services[].taskSets[]' | jq -rcM '{externalId: .externalId, status: .status, scale: "\(.scale.value)%", desired: .computedDesiredCount, pending: .pendingCount, running: .runningCount}'
 }
 
-function _EXTERNAL_primaryTaskSetJson() {
-  local primary_task_sets=$( $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
-                              jq '.services[].taskSets | map(select(.status == "ACTIVE" and .runningCount > 0 and .pendingCount == 0))' )
-  
-  primary_task_sets_count=$( echo $primary_task_sets | jq -r 'length' )
-  if [[ "$primary_task_sets_count" != "1" ]]; then
-    echo "No unique PRIMARY task set (found $primary_task_sets_count)" >&2
-    kill -10 $PROC
-  fi
-  
-  echo $primary_task_sets | jq -r '.[0]'
+function _EXTERNAL_activeTasksSet() {
+  $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | \
+    jq '.services[].taskSets | map(select(.status == "ACTIVE" and .runningCount > 0 and .pendingCount == 0))'
 }
 
 function _EXTERNAL_taskSetAsActive() {
@@ -725,6 +757,10 @@ function _EXTERNAL_rollout_confirm_custom() {
 }
 
 ## ECS (default) deployment controller
+function ECS_service_hasTaskDefinition() {
+  echo "true"
+}
+
 function ECS_service_currentTaskDefinition() {
   $AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq -r .services[0].taskDefinition
 }
@@ -1054,7 +1090,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     initDeploymentController
 
     # Not required creation of new a task definition
-    if [ $FORCE_NEW_DEPLOYMENT == true ]; then
+    if [ $FORCE_NEW_DEPLOYMENT == true ] && [ `${DEPLOYMENT_CONTROLLER}_service_hasTaskDefinition` == "true" ]; then
       ${DEPLOYMENT_CONTROLLER}_service_forceNewDeployment
       exit 0
     fi
@@ -1065,7 +1101,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
     # Get current task definition
     getCurrentTaskDefinition
-    echo "Current task definition: $TASK_DEFINITION_ARN";
+    [ ! -z $TASK_DEFINITION_ARN ] && echo "Current task definition: $TASK_DEFINITION_ARN";
 
     # create new task definition json
     createNewTaskDefJson
