@@ -50,6 +50,10 @@ Usage
                                           the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                           for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
         --copy-task-definition-tags   Copy the existing task definition tags to the new task definition revision
+        --task-set-file              (EXTERNAL deployment only) File used as task set to deploy.
+        --canary-percent             (EXTERNAL deployment only) Size for canary deployment (default: $CANARY_PERCENT).
+        --canary-confirmation        (EXTERNAL deployment only) Strategy for confirming deployment from canary to stable.
+                                          Supported: interactive wait_timeout proceed. (default: interactive).
         -v | --verbose                Verbose output
              --version                Display the version
 

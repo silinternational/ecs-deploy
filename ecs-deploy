@@ -28,6 +28,7 @@ RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
+TASK_SET_FILE=false
 CANARY_PERCENT=25
 CANARY_CONFIRMATIONS=( "interactive" "wait_timeout" "proceed" )
 CANARY_CONFIRMATION=${CANARY_CONFIRMATIONS[0]}
@@ -84,7 +85,8 @@ Optional arguments:
                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
     --copy-task-definition-tags  Copy the existing task definition tags to the new task definition revision
-    --canary-percent             (EXTERNAL deployment only) Size for canary deployment (default: $CANARY_PERCENT)
+    --task-set-file              (EXTERNAL deployment only) File used as task set to deploy.
+    --canary-percent             (EXTERNAL deployment only) Size for canary deployment (default: $CANARY_PERCENT).
     --canary-confirmation        (EXTERNAL deployment only) Strategy for confirming deployment from canary to stable.
                                        Supported: ${CANARY_CONFIRMATIONS[@]}. (default: $CANARY_CONFIRMATION).
     -v | --verbose               Verbose output
@@ -546,13 +548,14 @@ function EXTERNAL_service_forceNewDeployment() {
 function EXTERNAL_service_update() {
   # NEW_DEF: json
   # NEW_TASKDEF: ARN
+  local target_task_set=$( _EXTERNAL_taskSetDefinitionJson )
 
   local current_task_set=$( _EXTERNAL_primaryTaskSetJson )
   local current_task_set_arn=$( echo $current_task_set | jq -r '.taskSetArn' )
   local current_task_set_id=$( echo $current_task_set | jq -r '.id' )
 
   echo "Creating new canary deployment of the service"
-  local canary_task_set=$( echo $current_task_set | \
+  local canary_task_set=$( echo $target_task_set | \
                               _EXTERNAL_deploymentLabeledTo canary | \
                               _EXTERNAL_deploymentScaledTo $CANARY_PERCENT | \
                               _EXTERNAL_deploymentTargetingTaskDefinition "$NEW_TASKDEF" )
@@ -608,6 +611,14 @@ function _EXTERNAL_deploymentLabeledTo() {
 function _EXTERNAL_deploymentTargetingTaskDefinition() {
   local arn="$1"
   jq -rc ".taskDefinition=\"$arn\""
+}
+
+function _EXTERNAL_taskSetDefinitionJson() {
+  if [ $TASK_SET_FILE == false ]; then
+      echo "$( _EXTERNAL_primaryTaskSetJson )"
+  else
+      echo "$(cat $TASK_SET_FILE)"
+  fi
 }
 
 function _EXTERNAL_deploymentsStatus() {
@@ -673,7 +684,9 @@ function _EXTERNAL_deleteTaskSet() {
 
 function _EXTERNAL_createTaskSet() {
   local original_task_set="$1"
-  local new_def_jq_filter="externalId: .externalId, taskDefinition: .taskDefinition, launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, serviceRegistries: .serviceRegistries, scale: .scale, tags: .tags"
+  local new_def_jq_filter="externalId: .externalId, taskDefinition: .taskDefinition, launchType: .launchType, platformVersion: .platformVersion, networkConfiguration: .networkConfiguration, loadBalancers: .loadBalancers, scale: .scale, serviceRegistries: .serviceRegistries"
+  # 'tags: .tags' only with something similar to COPY_TASK_DEFINITION_TAGS
+  
   local new_task_set=$( echo $original_task_set | \
                           jq -r "{ $new_def_jq_filter } + { cluster: \"$CLUSTER\", service: \"$SERVICE\" }" )
   $AWS_ECS create-task-set --cli-input-json "$new_task_set" | jq -rc '.taskSet.id'
@@ -986,6 +999,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             --copy-task-definition-tags)
                 COPY_TASK_DEFINITION_TAGS=true
+                ;;
+            --task-set-file)
+                TASK_SET_FILE="$2"
+                shift
                 ;;
             --canary-percent)
                 CANARY_PERCENT="$2"
