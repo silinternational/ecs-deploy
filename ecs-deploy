@@ -450,40 +450,30 @@ function updateService() {
 
     # Update the service
     UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
-
-    # Only excepts RUNNING state from services whose desired-count > 0
-    SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
-    if [ $SERVICE_DESIREDCOUNT -gt 0 ]; then
-      if [[ $MAX_DEFINITIONS -gt 0 ]]; then
-          FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
-          FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
-          TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
-          NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
-          if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
-              LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
-              for i in $(seq 0 $LAST_OUTDATED_INDEX); do
-                  OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
-
-                  echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
-
-                $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
-              done
-          fi
-
-          UPDATE_SERVICE_SUCCESS="true"
-          return
+    if [ $? != 0 ]; then
+      echo "Update service failed with status code $?. Response: ${UPDATE}"
+      if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+        rollback
       fi
-      
-      if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
-          # Timeout
-          echo "ERROR: New task definition not running within $TIMEOUT seconds"
-          if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
-            rollback
-          fi
-          exit 1
-      fi
-    else
-        echo "Skipping check for running task definition, as desired-count <= 0"
+      exit 1
+    fi
+
+    # Clean up old task definitions if desired
+    if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+        FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
+        FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
+        TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+        NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
+        if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
+            LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
+            for i in $(seq 0 $LAST_OUTDATED_INDEX); do
+                OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
+
+                echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
+
+              $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
+            done
+        fi
     fi
 }
 
