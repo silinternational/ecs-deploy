@@ -470,10 +470,8 @@ function updateService() {
               done
           fi
 
-          fi
           UPDATE_SERVICE_SUCCESS="true"
-          break
-        fi
+          return
       fi
       
       if [[ "${UPDATE_SERVICE_SUCCESS}" != "true" ]]; then
