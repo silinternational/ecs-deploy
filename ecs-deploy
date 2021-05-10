@@ -447,7 +447,7 @@ function rollback() {
 
 function updateServiceForceNewDeployment() {
     echo 'Force a new deployment of the service'
-    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment > /dev/null
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment # > /dev/null
 }
 
 function updateService() {
