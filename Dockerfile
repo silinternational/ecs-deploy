@@ -1,6 +1,6 @@
 FROM alpine:3.13
 
-# Install packges needed
+# Install required packages
 RUN apk --no-cache add ca-certificates curl bash jq py3-pip && \
     pip install awscli
 
