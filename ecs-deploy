@@ -17,6 +17,7 @@ TAGVAR=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
 USE_MOST_RECENT_TASK_DEFINITION=false
+USE_MOST_RECENT_TASK_DEFINITION_FORCED=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
@@ -36,49 +37,50 @@ Simple script for triggering blue/green deployments on Amazon Elastic Container 
 https://github.com/silinternational/ecs-deploy
 
 One of the following is required:
-    -n | --service-name          Name of service to deploy
-    -d | --task-definition       Name of task definition to deploy
+    -n | --service-name           Name of service to deploy
+    -d | --task-definition        Name of task definition to deploy
 
 Required arguments:
-    -k | --aws-access-key        AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
-    -s | --aws-secret-key        AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
-    -r | --region                AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
-    -p | --profile               AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
-    -c | --cluster               Name of ECS cluster
-    -i | --image                 Name of Docker image to run, ex: repo/image:latest
-                                 Format: [domain][:port][/repo][/][image][:tag]
-                                 Examples: mariadb, mariadb:latest, silintl/mariadb,
-                                           silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
-    --aws-instance-profile       Use the IAM role associated with this instance
+    -k | --aws-access-key         AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
+    -s | --aws-secret-key         AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
+    -r | --region                 AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
+    -p | --profile                AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
+    -c | --cluster                Name of ECS cluster
+    -i | --image                  Name of Docker image to run, ex: repo/image:latest
+                                  Format: [domain][:port][/repo][/][image][:tag]
+                                  Examples: mariadb, mariadb:latest, silintl/mariadb,
+                                            silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
+    --aws-instance-profile        Use the IAM role associated with this instance
 
 Optional arguments:
-    -a | --aws-assume-role       ARN for AWS Role to assume for ecs-deploy operations.
-    -D | --desired-count         The number of instantiations of the task to place and keep running in your service.
-    -m | --min                   minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
-    -M | --max                   maximumPercent: The upper limit on the number of running tasks during a deployment.
-    -t | --timeout               Default is 90s. Script monitors ECS Service for new task definition to be running.
-    -e | --tag-env-var           Get image tag name from environment variable. If provided this will override value
-                                       specified in image name argument.
-    -to | --tag-only             New tag to apply to all images defined in the task (multi-container task).
-                                       If provided this will override value specified in image name argument.
-    --max-definitions            Number of Task Definition Revisions to persist before deregistering oldest revisions.
-    --task-definition-file       File used as task definition to deploy
-    --enable-rollback            Rollback task definition if new version is not running before TIMEOUT
-    --force-new-deployment       Force a new deployment of the service. Default is false.
-    --use-latest-task-def        Will use the most recently created task definition as it's base, rather than the last used.
-    --skip-deployments-check     Skip deployments check for services that take too long to drain old tasks
-    --run-task                   Run created task now. If you set this, service-name are not needed.
-    --wait-for-success           Wait for task execution to complete and to receive the exitCode 0.
-    --launch-type                The launch type on which to run your task.
-                                       (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
-    --platform-version           The Fargate platform version on which to run your task.
-                                       (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
-    --network-configuration      The network configuration for the task. This parameter is required for task definitions that use
-                                       the awsvpc network mode to receive their own elastic network interface, and it is not supported
-                                       for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
-    --copy-task-definition-tags  Copy the existing task definition tags to the new task definition revision
-    -v | --verbose               Verbose output
-         --version               Display the version
+    -a | --aws-assume-role        ARN for AWS Role to assume for ecs-deploy operations.
+    -D | --desired-count          The number of instantiations of the task to place and keep running in your service.
+    -m | --min                    minumumHealthyPercent: The lower limit on the number of running tasks during a deployment.
+    -M | --max                    maximumPercent: The upper limit on the number of running tasks during a deployment.
+    -t | --timeout                Default is 90s. Script monitors ECS Service for new task definition to be running.
+    -e | --tag-env-var            Get image tag name from environment variable. If provided this will override value
+                                        specified in image name argument.
+    -to | --tag-only              New tag to apply to all images defined in the task (multi-container task).
+                                        If provided this will override value specified in image name argument.
+    --max-definitions             Number of Task Definition Revisions to persist before deregistering oldest revisions.
+    --task-definition-file        File used as task definition to deploy
+    --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
+    --force-new-deployment        Force a new deployment of the service. Default is false.
+    --use-latest-task-def         Will use the most recently created task definition as it's base, rather than the last used.
+    --use-latest-task-def-forced  Will use the most recently created task definition as it's base, rather than the last used.
+    --skip-deployments-check      Skip deployments check for services that take too long to drain old tasks
+    --run-task                    Run created task now. If you set this, service-name are not needed.
+    --wait-for-success            Wait for task execution to complete and to receive the exitCode 0.
+    --launch-type                 The launch type on which to run your task.
+                                        (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --platform-version            The Fargate platform version on which to run your task.
+                                        (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --network-configuration       The network configuration for the task. This parameter is required for task definitions that use
+                                        the awsvpc network mode to receive their own elastic network interface, and it is not supported
+                                        for other network modes. (https://docs.aws.amazon.com/cli/latest/reference/ecs/run-task.html)
+    --copy-task-definition-tags   Copy the existing task definition tags to the new task definition revision
+    -v | --verbose                Verbose output
+         --version                Display the version
 
 Requirements:
     aws:  AWS Command Line Interface
@@ -200,7 +202,6 @@ function assertRequiredArgumentsSet() {
         echo 'PLATFORM VERSION requires setting RUN TASK argument. You can set it using --run-task flag.'
         exit 12
     fi
-
 }
 
 function parseImageName() {
@@ -420,6 +421,11 @@ function rollback() {
 function updateServiceForceNewDeployment() {
     echo 'Force a new deployment of the service'
     $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment > /dev/null
+}
+
+function updateServiceForceNewDeploymentLatest() {
+    echo 'Force a new deployment of the service using latest task definition'
+    $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment --task-definition $TASK_DEFINITION_ARN > /dev/null
 }
 
 function updateService() {
@@ -701,6 +707,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --use-latest-task-def)
                 USE_MOST_RECENT_TASK_DEFINITION=true
                 ;;
+            --use-latest-task-def-forced)
+                USE_MOST_RECENT_TASK_DEFINITION_FORCED=true
+                ;;
             --force-new-deployment)
                 FORCE_NEW_DEPLOYMENT=true
                 ;;
@@ -759,7 +768,14 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
     # Not required creation of new a task definition
     if [ $FORCE_NEW_DEPLOYMENT == true ]; then
-        updateServiceForceNewDeployment
+
+        if [ $USE_MOST_RECENT_TASK_DEFINITION == true ] && [ $USE_MOST_RECENT_TASK_DEFINITION_FORCED == true ]; then
+          getCurrentTaskDefinition
+          updateServiceForceNewDeploymentLatest
+        else
+          updateServiceForceNewDeployment
+        fi
+
         if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
           waitForGreenDeployment
         fi
