@@ -28,6 +28,7 @@ RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
+DRY_RUN=false
 
 function usage() {
     cat <<EOM
@@ -322,30 +323,30 @@ function parseImageName() {
 function getCurrentTaskDefinition() {
     if [ $SERVICE != false ]; then
       # Get current task definition arn from service
-      TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
-      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+      TASK_DEFINITION_ARN=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition)
+      TASK_DEFINITION=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN)
 
       # For rollbacks
       LAST_USED_TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN
 
       if [ $USE_MOST_RECENT_TASK_DEFINITION != false ]; then
         # Use the most recently created TD of the family; rather than the most recently used.
-        TASK_DEFINITION_FAMILY=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN | jq -r .taskDefinition.family`
-        TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_FAMILY`
-        TASK_DEFINITION_ARN=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_FAMILY | jq -r .taskDefinition.taskDefinitionArn`
+        TASK_DEFINITION_FAMILY=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN | jq -r .taskDefinition.family)
+        TASK_DEFINITION=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_FAMILY)
+        TASK_DEFINITION_ARN=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_FAMILY | jq -r .taskDefinition.taskDefinitionArn)
       fi
-    elif [ $TASK_DEFINITION != false ]; then
+    elif [ "$TASK_DEFINITION" != false ]; then
       # Get current task definition arn from family[:revision] (or arn)
-      TASK_DEFINITION_ARN=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION | jq -r .taskDefinition.taskDefinitionArn`
+      TASK_DEFINITION_ARN=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION | jq -r .taskDefinition.taskDefinitionArn)
     fi
 
     # Get task definition using current task definition arn
     # If we're copying task definition tags to the new revision, also get current task definition tags
     if [[ "$COPY_TASK_DEFINITION_TAGS" == true ]]; then
-      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN --include TAGS`
+      TASK_DEFINITION=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN --include TAGS)
       TASK_DEFINITION_TAGS=$( echo "$TASK_DEFINITION" | jq ".tags" )
     else
-      TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+      TASK_DEFINITION=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN)
     fi
 }
 
@@ -362,7 +363,7 @@ function createNewTaskDefJson() {
     # + Filter the def
     if [[ "x$TAGONLY" == "x" ]]; then
       DEF=$( echo "$taskDefinition" \
-            | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
+            | sed -e 's~"image":.*'".*"'.*,~"image": "'"${useImage}"'",~g' \
             | jq '.taskDefinition' )
     else
       DEF=$( echo "$taskDefinition" \
@@ -385,7 +386,7 @@ function createNewTaskDefJson() {
 
     # Updated jq filters for AWS Fargate
     REQUIRES_COMPATIBILITIES=$(echo "${DEF}" | jq -r '. | select(.requiresCompatibilities != null) | .requiresCompatibilities[]')
-    if `echo ${REQUIRES_COMPATIBILITIES[@]} | grep -q "FARGATE"`; then
+    if echo ${REQUIRES_COMPATIBILITIES[@]} | grep -q "FARGATE"; then
       FARGATE_JQ_FILTER='requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory'
 
       if [[ ! "$NEW_DEF_JQ_FILTER" =~ ".*executionRoleArn.*" ]]; then
@@ -405,10 +406,15 @@ function createNewTaskDefJson() {
 
 function registerNewTaskDefinition() {
     # Register the new task definition, and store its ARN
-    if [[ "$COPY_TASK_DEFINITION_TAGS" == true && "$TASK_DEFINITION_TAGS" != false ]]; then
-      NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" --tags "$TASK_DEFINITION_TAGS" | jq -r .taskDefinition.taskDefinitionArn`
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "New task definition JSON:"
+        echo "$NEW_DEF"
     else
-      NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
+        if [[ "$COPY_TASK_DEFINITION_TAGS" == true && "$TASK_DEFINITION_TAGS" != false ]]; then
+            NEW_TASKDEF=$($AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" --tags "$TASK_DEFINITION_TAGS" | jq -r .taskDefinition.taskDefinitionArn)
+        else
+            NEW_TASKDEF=$($AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn)
+        fi
     fi
 }
 
@@ -448,12 +454,17 @@ function updateService() {
         DESIRED_COUNT="--desired-count $DESIRED"
     fi
 
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "Updating service."
+        return 0
+    fi
+
     # Update the service
-    UPDATE=`$AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG`
+    UPDATE=$($AWS_ECS update-service --cluster $CLUSTER --service $SERVICE $DESIRED_COUNT --task-definition $NEW_TASKDEF $DEPLOYMENT_CONFIG)
 
     # Only excepts RUNNING state from services whose desired-count > 0
-    SERVICE_DESIREDCOUNT=`$AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount'`
-    if [ $SERVICE_DESIREDCOUNT -gt 0 ]; then
+    SERVICE_DESIREDCOUNT=$($AWS_ECS describe-services --cluster $CLUSTER --service $SERVICE | jq '.services[]|.desiredCount')
+    if [ "$SERVICE_DESIREDCOUNT" -gt 0 ]; then
         # See if the service is able to come up again
         every=10
         i=0
@@ -476,7 +487,7 @@ function updateService() {
                     if [[ $MAX_DEFINITIONS -gt 0 ]]; then
                         FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
                         FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
-                        TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+                        TASK_REVISIONS=$($AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC)
                         NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
                         if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
                             LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
@@ -517,6 +528,10 @@ function waitForGreenDeployment {
   every=2
   i=0
   echo "Waiting for service deployment to complete..."
+  if [[ "$DRY_RUN" == true ]]; then
+      return 0
+  fi
+
   while [ $i -lt $TIMEOUT ]
   do
     NUM_DEPLOYMENTS=$($AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq "[.services[].deployments[]] | length")
@@ -557,7 +572,7 @@ function runTask {
     AWS_ECS_RUN_TASK="$AWS_ECS_RUN_TASK --network-configuration \"$RUN_TASK_NETWORK_CONFIGURATION\""
   fi
 
-  TASK_ARN=$(eval $AWS_ECS_RUN_TASK | jq -r '.tasks[0].taskArn')
+  TASK_ARN=$(eval "$AWS_ECS_RUN_TASK" | jq -r '.tasks[0].taskArn')
   echo "Executed task: $TASK_ARN"
 
   if [ $RUN_TASK_WAIT_FOR_SUCCESS == true ]; then
@@ -569,12 +584,12 @@ function runTask {
 
         TASK_JSON=$($AWS_ECS describe-tasks --cluster "$CLUSTER"  --tasks "$TASK_ARN")
 
-        TASK_STATUS=$(echo $TASK_JSON | jq -r  '.tasks[0].lastStatus')
-        TASK_EXIT_CODE=$(echo $TASK_JSON | jq -r  '.tasks[0].containers[0].exitCode')
+        TASK_STATUS=$(echo "$TASK_JSON" | jq -r  '.tasks[0].lastStatus')
+        TASK_EXIT_CODE=$(echo "$TASK_JSON" | jq -r  '.tasks[0].containers[0].exitCode')
 
-        if [ $TASK_STATUS == "STOPPED" ]; then
+        if [ "$TASK_STATUS" == "STOPPED" ]; then
             echo "Task finished with status: $TASK_STATUS"
-            if [ $TASK_EXIT_CODE != 0 ]; then
+            if [ "$TASK_EXIT_CODE" != 0 ]; then
                 echo "Task execution failed with exit code: $TASK_EXIT_CODE"
                 exit 1
             fi
@@ -731,6 +746,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             -v|--verbose)
                 VERBOSE=true
                 ;;
+            --dry-run)
+                DRY_RUN=true
+                ;;
             --version)
                 echo ${VERSION}
                 exit 0
@@ -779,7 +797,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
 
     # register new task definition
     registerNewTaskDefinition
-    echo "New task definition: $NEW_TASKDEF";
+    [[ "$DRY_RUN" == false ]] && echo "New task definition: $NEW_TASKDEF";
 
     # update service if needed
     if [ $SERVICE == false ]; then
