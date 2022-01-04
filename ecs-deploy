@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.2"
+VERSION="3.10.3"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -660,7 +660,7 @@ function _EXTERNAL_taskSetDefinitionJson() {
   if [ $TASK_SET_FILE == false ]; then
       echo "$( _EXTERNAL_activeTasksSet | jq -r '.[0]' )"
   else
-      echo "$(cat $TASK_SET_FILE)"
+      echo "$(cat $TASK_SET_FILE | jq -r '.taskSet' )"
   fi
 }
 
