@@ -43,6 +43,8 @@ inputs:
   image:
     description: 'Name of Docker image to run, ex: repo/image:latest'
     required: true
+  aws_assume_role_cmd:
+    description: '--aws-assume-role'
   aws_assume_role:
     description: 'ARN for AWS Role to assume for ecs-deploy operations.'
     required: false
