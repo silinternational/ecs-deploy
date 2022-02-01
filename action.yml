@@ -43,6 +43,8 @@ inputs:
   image:
     description: 'Name of Docker image to run, ex: repo/image:latest'
     required: true
+  aws_assume_role_cmd:
+    description: '--aws-assume-role'
   aws_assume_role:
     description: 'ARN for AWS Role to assume for ecs-deploy operations.'
     required: false
@@ -73,6 +75,8 @@ inputs:
   tag_env_var:
     description: 'Get image tag name from environment variable. If provided this will override value specified in image name argument.'
     required: false
+  tag_only_cmd:
+    description: '--tag-only'
   tag_only:
     description: 'New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.'
     required: false
