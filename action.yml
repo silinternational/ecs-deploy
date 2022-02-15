@@ -95,6 +95,8 @@ inputs:
   use_latest_task_def:
     description: 'Will use the most recently created task definition as its base, rather than the last used.'
     required: false
+  force_new_deployment_cmd:
+    description: '--force-new-deployment'
   force_new_deployment:
     description: 'Force a new deployment of the service.'
     required: false
