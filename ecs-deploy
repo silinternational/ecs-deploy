@@ -523,7 +523,7 @@ function waitForGreenDeployment {
 
     # Wait to see if more than 1 deployment stays running
     # If the wait time has passed, we need to roll back
-    if [ $NUM_DEPLOYMENTS -eq 1 ]; then
+    if [ $NUM_DEPLOYMENTS -ge 1 ]; then
       echo "Service deployment successful."
       DEPLOYMENT_SUCCESS="true"
       # Exit the loop.
