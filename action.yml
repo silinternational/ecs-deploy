@@ -122,11 +122,11 @@ runs:
   args: [
     '${{ inputs.aws_access_key_cmd }}', '${{ inputs.aws_access_key }}',
     '${{ inputs.aws_secret_key_cmd }}', '${{ inputs.aws_secret_key }}',
-    '${{ inputs.enable_rollback_cmd }}', '${{ inputs.enable_rollback }}',
-    '${{ inputs.force_new_deployment_cmd }}', '${{ inputs.force_new_deployment }}',
     '${{ inputs.region_cmd }}', '${{ inputs.region }}',
     '${{ inputs.service_name_cmd }}', '${{ inputs.service_name }}',
     '${{ inputs.task_definition_cmd }}', '${{ inputs.task_definition }}',
+    '${{ inputs.enable_rollback_cmd }}', '${{ inputs.enable_rollback }}',
+    '${{ inputs.force_new_deployment_cmd }}', '${{ inputs.force_new_deployment }}',
     '${{ inputs.cluster_cmd }}', '${{ inputs.cluster }}',
     '${{ inputs.image_cmd }}', '${{ inputs.image }}',
     '${{ inputs.aws_assume_role_cmd }}', '${{ inputs.aws_assume_role }}',
