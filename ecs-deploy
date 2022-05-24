@@ -15,6 +15,7 @@ TIMEOUT=90
 VERBOSE=false
 TAGVAR=false
 TAGONLY=""
+TAGONLYCONTAINERNAMES=""
 ENABLE_ROLLBACK=false
 USE_MOST_RECENT_TASK_DEFINITION=false
 AWS_CLI=$(which aws)
@@ -28,6 +29,7 @@ RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
+FOR_EXAMPLE=""
 
 function usage() {
     cat <<EOM
@@ -61,6 +63,7 @@ Optional arguments:
                                        specified in image name argument.
     -to | --tag-only             New tag to apply to all images defined in the task (multi-container task).
                                        If provided this will override value specified in image name argument.
+    -toc | --tag_only_container_names New tag to apply to fixed images defined in the task (multi-container task).
     --max-definitions            Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --task-definition-file       File used as task definition to deploy
     --enable-rollback            Rollback task definition if new version is not running before TIMEOUT
@@ -360,14 +363,24 @@ function createNewTaskDefJson() {
     # Get a JSON representation of the current task definition
     # + Update definition to use new image name
     # + Filter the def
+
     if [[ "x$TAGONLY" == "x" ]]; then
-      DEF=$( echo "$taskDefinition" \
-            | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
-            | jq '.taskDefinition' )
+        DEF=$( echo "$taskDefinition" \
+              | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
+              | jq '.taskDefinition' )
+    elif [[ "x$TAGONLYCONTAINERNAMES" == "x" ]]; then
+        DEF=$( echo "$taskDefinition" \
+              | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
+              | jq '.taskDefinition' )
     else
-      DEF=$( echo "$taskDefinition" \
-            | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
-            | jq '.taskDefinition' )
+        IFS=',' read -a myarray <<< $TAGONLYCONTAINERNAMES
+        for (( c=0; c<${#myarray[@]}; c++ ))
+          do
+              FOR_EXAMPLE+="/${myarray[c]}/s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|;"
+          done
+        DEF=$( echo "$taskDefinition" \
+                    | sed -e "${FOR_EXAMPLE}" \
+                    | jq '.taskDefinition' )
     fi
 
     # Default JQ filter for new task definition
@@ -685,6 +698,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -to|--tag-only)
                 TAGONLY="$2"
+                shift
+                ;;
+            -toc|--tag_only_container_names)
+                TAGONLYCONTAINERNAMES="$2"
                 shift
                 ;;
             --max-definitions)

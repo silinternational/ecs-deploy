@@ -37,6 +37,8 @@ Usage
                                       Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
                                             Script will only perform deregistration if deployment succeeds.
+        
+        -- tag_only_container_names   This parameter can work when --tag-only is enabled. It passes specfic container names which should be updated with the new tag and other containers will not be updated with the provided tag   
         --task-definition-file        File used as task definition to deploy
         --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
         --use-latest-task-def         Will use the most recently created task definition as it's base, rather than the last used.

@@ -80,6 +80,12 @@ inputs:
   tag_only:
     description: 'New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.'
     required: false
+  tag_only_container_names_cmd:
+    description: '--tag_only_container_names'
+    required: false
+  tag_only_container_names:
+    description: 'New tag to apply to fixed images defined in the task (multi-container task).'
+    required: false
   max_definitions_cmd:
     description: '--max-definition'
   max_definitions:
@@ -137,6 +143,7 @@ runs:
     '${{ inputs.timeout_cmd }}', '${{ inputs.timeout }}',
     '${{ inputs.tag_env_var_cmd }}', '${{ inputs.tag_env_var }}',
     '${{ inputs.tag_only_cmd }}', '${{ inputs.tag_only }}',
+    '${{ inputs.tag_only_container_names_cmd }}', '${{ inputs.tag_only_container_names }}',
     '${{ inputs.use_latest_task_def_cmd }}', '${{ inputs.use_latest_task_def }}',
     '${{ inputs.max_definitions_cmd }}', '${{ inputs.max_definitions }}'
   ]
