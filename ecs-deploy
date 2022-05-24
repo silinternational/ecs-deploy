@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.2"
+VERSION="3.10.4"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -536,7 +536,7 @@ function waitForGreenDeployment {
 
     # Wait to see if more than 1 deployment stays running
     # If the wait time has passed, we need to roll back
-    if [ $NUM_DEPLOYMENTS -eq 1 ]; then
+    if [ $NUM_DEPLOYMENTS -ge 1 ]; then
       echo "Service deployment successful."
       DEPLOYMENT_SUCCESS="true"
       # Exit the loop.
