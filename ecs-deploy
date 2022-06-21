@@ -574,7 +574,7 @@ function runTask {
         if [ $TASK_STATUS == "STOPPED" ]; then
             echo "Task finished with status: $TASK_STATUS"
             TASK_CONTAINERS_FAILED=$(echo $TASK_JSON | jq -r  '.tasks[0].containers|map(.exitCode!=0)|any')
-            if [ $TASK_CONTAINERS_FAILED ]; then
+            if [ $TASK_CONTAINERS_FAILED == true ]; then
                 TASK_EXIT_CODES=$(echo $TASK_JSON | jq -r  '.tasks[0].containers|map(.name + " => " + (.exitCode | tostring))')
                 echo "Task execution failed with exit code: $TASK_EXIT_CODES"
                 exit 1
