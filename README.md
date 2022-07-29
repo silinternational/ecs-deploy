@@ -17,6 +17,7 @@ Usage
 
     One of the following is required:
         -n | --service-name     Name of service to deploy
+        -x | --service-name-prefix   Name prefix of service to deploy
         -d | --task-definition  Name of task definition to deploy
 
     Required arguments:
