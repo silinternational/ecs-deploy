@@ -37,6 +37,7 @@ https://github.com/silinternational/ecs-deploy
 
 One of the following is required:
     -n | --service-name          Name of service to deploy
+    -x | --service-name-prefix   Name prefix of service to deploy
     -d | --task-definition       Name of task definition to deploy
 
 Required arguments:
@@ -160,15 +161,23 @@ function assertRequiredArgumentsSet() {
               AWS_ECS="$AWS_ECS --profile $AWS_PROFILE"
     fi
 
-    if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITION is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
+    if [ $SERVICE == false ] && [ $SERVICE_PREFIX == false ] && [ $TASK_DEFINITION == false ]; then
+        echo "One of SERVICE, SERVICE_PREFIX or TASK DEFINITION is required. You can pass the value using -n / --service-name for a service, -x / --service-name-prefix for a service name prefix, or -d / --task-definition for a task"
         exit 5
+    fi
+    if [ $SERVICE != false ] && [ $SERVICE_PREFIX != false ]; then
+        echo "Only one of SERVICE or SERVICE PREFIX may be specified, but you supplied both"
+        exit 6
+    fi
+    if [ $SERVICE_PREFIX != false ] && [ $TASK_DEFINITION != false ]; then
+        echo "Only one of SERVICE PREFIX or TASK DEFINITION may be specified, but you supplied both"
+        exit 6
     fi
     if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
         echo "Only one of SERVICE or TASK DEFINITION may be specified, but you supplied both"
         exit 6
     fi
-    if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
+    if [[ $SERVICE != false || $SERVICE_PREFIX != false ]] && [ $CLUSTER == false ]; then
         echo "CLUSTER is required. You can pass the value using -c or --cluster"
         exit 7
     fi
@@ -320,7 +329,12 @@ function parseImageName() {
 }
 
 function getCurrentTaskDefinition() {
-    if [ $SERVICE != false ]; then
+    if [[ $SERVICE_PREFIX != false || $SERVICE != false ]]; then
+      if [ $SERVICE_PREFIX != false ]; then
+        # Get service from service prefix
+        SERVICE=$($AWS_ECS list-services --cluster $CLUSTER --query 'serviceArns[?contains(@, `'${SERVICE_PREFIX}'`)]' | jq -r .[0])
+      fi
+      
       # Get current task definition arn from service
       TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
