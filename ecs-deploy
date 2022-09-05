@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.4"
+VERSION="3.10.5"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -438,10 +438,10 @@ function updateServiceForceNewDeployment() {
 function updateService() {
     if [[ $(echo ${NEW_DEF} | jq ".containerDefinitions[0].healthCheck != null") == true ]]; then
         checkFieldName="healthStatus"
-        checkFieldValue="HEALTHY"
+        checkFieldValue='"HEALTHY"'
     else
         checkFieldName="lastStatus"
-        checkFieldValue="RUNNING"
+        checkFieldValue='"RUNNING"'
     fi
 
     UPDATE_SERVICE_SUCCESS="false"
