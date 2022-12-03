@@ -112,9 +112,6 @@ EOM
     exit 3
 }
 
-
-
-
 # Check requirements
 function require() {
     command -v "$1" > /dev/null 2>&1 || {
@@ -135,13 +132,11 @@ function assumeRole() {
    export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
 }
 
-
 function assumeRoleClean() {
    unset AWS_ACCESS_KEY_ID
    unset AWS_SECRET_ACCESS_KEY
    unset AWS_SESSION_TOKEN
 }
-
 
 # Check that all required variables/combinations are set
 function assertRequiredArgumentsSet() {
@@ -200,7 +195,6 @@ function assertRequiredArgumentsSet() {
         echo 'PLATFORM VERSION requires setting RUN TASK argument. You can set it using --run-task flag.'
         exit 12
     fi
-
 }
 
 function parseImageName() {
@@ -304,7 +298,6 @@ function parseImageName() {
           useImage="$useImage/$img"
         fi
       fi
-      imageWithoutTag="$useImage"
       if [[ ! -z "$tag" ]]; then
         useImage="$useImage:$tag"
       fi
@@ -362,7 +355,7 @@ function createNewTaskDefJson() {
     # + Filter the def
     if [[ "x$TAGONLY" == "x" ]]; then
       DEF=$( echo "$taskDefinition" \
-            | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
+            | sed -e 's~"image":.*'".*"'.*,~"image": "'"${useImage}"'",~g' \
             | jq '.taskDefinition' )
     else
       DEF=$( echo "$taskDefinition" \
@@ -472,24 +465,9 @@ function updateService() {
 
                 if [ "$RUNNING" ]; then
                     echo "Service updated successfully, new task definition running.";
-
-                    if [[ $MAX_DEFINITIONS -gt 0 ]]; then
-                        FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
-                        FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
-                        TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
-                        NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
-                        if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
-                            LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
-                            for i in $(seq 0 $LAST_OUTDATED_INDEX); do
-                                OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
-
-                                echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
-
-                              $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
-                            done
-                        fi
-
-                    fi
+                    
+                    deregisterOutdatedTasks
+                    
                     UPDATE_SERVICE_SUCCESS="true"
                     break
                 fi
@@ -594,11 +572,30 @@ function runTask {
     fi
   fi
 
-
-
   echo "Task $TASK_ARN executed successfully!"
+  
+  deregisterOutdatedTasks
+  
   exit 0
+}
 
+function deregisterOutdatedTasks() {
+    if [[ $MAX_DEFINITIONS -gt 0 ]]; then
+      FAMILY_PREFIX=${TASK_DEFINITION_ARN##*:task-definition/}
+      FAMILY_PREFIX=${FAMILY_PREFIX%*:[0-9]*}
+      TASK_REVISIONS=`$AWS_ECS list-task-definitions --family-prefix $FAMILY_PREFIX --status ACTIVE --sort ASC`
+      NUM_ACTIVE_REVISIONS=$(echo "$TASK_REVISIONS" | jq ".taskDefinitionArns|length")
+      if [[ $NUM_ACTIVE_REVISIONS -gt $MAX_DEFINITIONS ]]; then
+        LAST_OUTDATED_INDEX=$(($NUM_ACTIVE_REVISIONS - $MAX_DEFINITIONS - 1))
+        for i in $(seq 0 $LAST_OUTDATED_INDEX); do
+          OUTDATED_REVISION_ARN=$(echo "$TASK_REVISIONS" | jq -r ".taskDefinitionArns[$i]")
+
+          echo "Deregistering outdated task revision: $OUTDATED_REVISION_ARN"
+
+          $AWS_ECS deregister-task-definition --task-definition "$OUTDATED_REVISION_ARN" > /dev/null
+        done
+      fi
+  fi
 }
 
 ######################################################
