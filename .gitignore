@@ -1,3 +1,4 @@
+*.aes
 local.env
 def
 newdef
