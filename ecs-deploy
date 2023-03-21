@@ -405,7 +405,7 @@ function createNewTaskDefJson() {
 
 function registerNewTaskDefinition() {
     # Register the new task definition, and store its ARN
-    if [[ "$COPY_TASK_DEFINITION_TAGS" == true && "$TASK_DEFINITION_TAGS" != false ]]; then
+    if [[ "$COPY_TASK_DEFINITION_TAGS" == true && "$TASK_DEFINITION_TAGS" != false && "$TASK_DEFINITION_TAGS" != "[]" ]]; then
       NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" --tags "$TASK_DEFINITION_TAGS" | jq -r .taskDefinition.taskDefinitionArn`
     else
       NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
