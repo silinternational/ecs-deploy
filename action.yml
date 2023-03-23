@@ -48,6 +48,8 @@ inputs:
   aws_assume_role:
     description: 'ARN for AWS Role to assume for ecs-deploy operations.'
     required: false
+  desired_count_cmd:
+    description: '--desired-count'
   desired_count:
     description: 'The number of instantiations of the task to place and keep running in your service.'
     required: false
@@ -72,6 +74,8 @@ inputs:
     description: 'Script monitors ECS Service for new task definition to be running.'
     required: false
     default: '90'
+  tag_env_var_cmd:
+    description: '--tag-env-var'
   tag_env_var:
     description: 'Get image tag name from environment variable. If provided this will override value specified in image name argument.'
     required: false
@@ -100,8 +104,15 @@ inputs:
   force_new_deployment:
     description: 'Force a new deployment of the service.'
     required: false
+  run_task_cmd:
+    description: '--run-task'
   run_task:
     description: 'Run created task now. If you set this, service-name are not needed.'
+    required: false
+  wait_for_success_cmd:
+    description: '--wait-for-success'
+  wait_for_success:
+    description: 'Wait for task execution to complete and to receive the exitCode 0.'
     required: false
   skip_deployments_check_cmd:
     description: '--skip-deployments-check'
@@ -138,5 +149,7 @@ runs:
     '${{ inputs.tag_env_var_cmd }}', '${{ inputs.tag_env_var }}',
     '${{ inputs.tag_only_cmd }}', '${{ inputs.tag_only }}',
     '${{ inputs.use_latest_task_def_cmd }}', '${{ inputs.use_latest_task_def }}',
-    '${{ inputs.max_definitions_cmd }}', '${{ inputs.max_definitions }}'
+    '${{ inputs.max_definitions_cmd }}', '${{ inputs.max_definitions }}',
+    '${{ inputs.run_task_cmd }}', '${{ inputs.run_task }}',
+    '${{ inputs.wait_for_success_cmd }}', '${{ inputs.wait_for_success }}'
   ]
