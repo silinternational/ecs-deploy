@@ -48,6 +48,8 @@ inputs:
   aws_assume_role:
     description: 'ARN for AWS Role to assume for ecs-deploy operations.'
     required: false
+  desired_count_cmd:
+    description: '--desired-count'
   desired_count:
     description: 'The number of instantiations of the task to place and keep running in your service.'
     required: false
@@ -72,6 +74,8 @@ inputs:
     description: 'Script monitors ECS Service for new task definition to be running.'
     required: false
     default: '90'
+  tag_env_var_cmd:
+    description: '--tag-env-var'
   tag_env_var:
     description: 'Get image tag name from environment variable. If provided this will override value specified in image name argument.'
     required: false
