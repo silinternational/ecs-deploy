@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.11"
+VERSION="3.10.13"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
