@@ -118,6 +118,11 @@ inputs:
     description: '--skip-deployments-check'
   skip_deployments_check:
     description: 'Skip deployments check for services that take too long to drain old tasks'
+  copy_task_definition_tags_cmd:
+    description: '--copy-task-definition-tags'
+  copy_task_definition_tags:
+    description: 'Copy the existing task definition tags to the new task definition revision'
+    required: false
   verbose:
     description: 'Verbose output'
     required: false
