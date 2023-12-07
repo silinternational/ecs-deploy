@@ -15,6 +15,7 @@ VERBOSE=false
 TAGVAR=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
+WAIT_COMPLETION=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 
@@ -50,6 +51,7 @@ Optional arguments:
     -to | --tag-only        New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
+    --wait-completion       Wait for the full deployment completion by checking if the service is stable
     -v | --verbose          Verbose output
          --version          Display the version
 
@@ -407,6 +409,33 @@ function waitForGreenDeployment {
   fi
 }
 
+function waitForDeplomentCompletion {
+  echo "Waiting for deployment completion until service is stable"
+
+  WAIT="true"
+  DEPLOYMENT_SUCCESS="false"
+  
+  while [ "${WAIT}" != "false" ]
+  do
+
+    if NEW_DEPLOYMENT=$($AWS_ECS wait services-stable --cluster $CLUSTER --services $SERVICE); then
+      DEPLOYMENT_SUCCESS="true"
+      WAIT="false"
+      echo "Deployment completed successfully"
+    else
+      WAIT="false"
+      echo "Deployment timeout"
+    fi
+  done
+
+  if [[ "${DEPLOYMENT_SUCCESS}" != "true" ]]; then
+    if [[ "${ENABLE_ROLLBACK}" != "false" ]]; then
+      rollback
+    fi
+    exit 1
+  fi
+}
+
 ######################################################
 # When not being tested, run application as expected #
 ######################################################
@@ -500,6 +529,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --enable-rollback)
                 ENABLE_ROLLBACK=true
                 ;;
+            --wait-completion)
+                WAIT_COMPLETION=true
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 ;;
@@ -549,7 +581,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     else
         updateService
 
-        waitForGreenDeployment
+      if [ $WAIT_COMPLETION == true ]; then
+          waitForDeplomentCompletion
+      else
+          waitForGreenDeployment
+      fi
     fi
 
     if [[ "$AWS_ASSUME_ROLE" != false ]]; then
