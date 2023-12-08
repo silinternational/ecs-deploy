@@ -418,7 +418,12 @@ function waitForDeplomentCompletion {
   while [ "${WAIT}" != "false" ]
   do
 
-    if NEW_DEPLOYMENT=$($AWS_ECS wait services-stable --cluster $CLUSTER --services $SERVICE); then
+    set +e
+    $AWS_ECS wait services-stable --cluster $CLUSTER --services $SERVICE
+    DEPLOYMENT_EXIT_CODE=$(echo $?)
+    set -e
+
+    if [[ "$DEPLOYMENT_EXIT_CODE" == 0 ]]; then
       DEPLOYMENT_SUCCESS="true"
       WAIT="false"
       echo "Deployment completed successfully"
