@@ -29,8 +29,7 @@ Usage
         -n | --service-name           Name of service to deploy
         -i | --image                  Name of Docker image to run, ex: repo/image:latest
                                       Format: [domain][:port][/repo][/][image][:tag]
-                                      Examples: mariadb, mariadb:latest, silintl/mariadb,
-                                                silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
+                                      Examples: mariadb, mariadb:latest, private.registry.com:8000/repo/image:tag
 
     Optional arguments:
         -a | --aws-assume-role        ARN for AWS Role to assume for ecs-deploy operations.
