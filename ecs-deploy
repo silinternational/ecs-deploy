@@ -16,6 +16,8 @@ TAGVAR=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
 WAIT_COMPLETION=false
+IS_ROLLBACK=false
+TASK_DEFINITION_ARN=false
 AWS_CLI=$(which aws)
 AWS_ECS="$AWS_CLI --output json ecs"
 
@@ -52,6 +54,7 @@ Optional arguments:
     --max-definitions       Number of Task Definition Revisions to persist before deregistering oldest revisions.
     --enable-rollback       Rollback task definition if new version is not running before TIMEOUT
     --wait-completion       Wait for the full deployment completion by checking if the service is stable
+    --rollback              Rollback task definition to the previous one used before the deployment
     -v | --verbose          Verbose output
          --version          Display the version
 
@@ -135,25 +138,38 @@ function assertRequiredArgumentsSet() {
               AWS_ECS="$AWS_ECS --profile $AWS_PROFILE"
     fi
 
-    if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
-        echo "One of SERVICE or TASK DEFINITION is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
-        exit 5
-    fi
-    if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
-        echo "Only one of SERVICE or TASK DEFINITION may be specified, but you supplied both"
-        exit 6
-    fi
-    if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
-        echo "CLUSTER is required. You can pass the value using -c or --cluster"
-        exit 7
-    fi
-    if [ $IMAGE == false ]; then
-        echo "IMAGE is required. You can pass the value using -i or --image"
-        exit 8
-    fi
-    if ! [[ $MAX_DEFINITIONS =~ ^-?[0-9]+$ ]]; then
-        echo "MAX_DEFINITIONS must be numeric, or not defined."
-        exit 9
+    if [[ "$IS_ROLLBACK" != false  ]]; then
+      if [ $CLUSTER == false ]; then
+          echo "CLUSTER is required. You can pass the value using -c or --cluster"
+          exit 5
+      fi
+      
+      if [ $SERVICE == false ]; then
+          echo "SERVICE is required. You can pass the value using -n / --service-name for a service"
+          exit 6
+      fi
+  
+    else
+      if [ $SERVICE == false ] && [ $TASK_DEFINITION == false ]; then
+          echo "One of SERVICE or TASK DEFINITION is required. You can pass the value using -n / --service-name for a service, or -d / --task-definition for a task"
+          exit 5
+      fi
+      if [ $SERVICE != false ] && [ $TASK_DEFINITION != false ]; then
+          echo "Only one of SERVICE or TASK DEFINITION may be specified, but you supplied both"
+          exit 6
+      fi
+      if [ $SERVICE != false ] && [ $CLUSTER == false ]; then
+          echo "CLUSTER is required. You can pass the value using -c or --cluster"
+          exit 7
+      fi
+      if [ $IMAGE == false ]; then
+          echo "IMAGE is required. You can pass the value using -i or --image"
+          exit 8
+      fi
+      if ! [[ $MAX_DEFINITIONS =~ ^-?[0-9]+$ ]]; then
+          echo "MAX_DEFINITIONS must be numeric, or not defined."
+          exit 9
+      fi
     fi
 
 }
@@ -270,6 +286,8 @@ function getCurrentTaskDefinition() {
       # Get current task definition name from service
       TASK_DEFINITION_ARN=`$AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition`
       TASK_DEFINITION=`$AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN`
+      
+      printf %s "$TASK_DEFINITION_ARN" > currenttaskdef
     fi
 }
 
@@ -323,6 +341,10 @@ function registerNewTaskDefinition() {
 }
 
 function rollback() {
+    if [[ "$TASK_DEFINITION_ARN" == false ]]; then
+      TASK_DEFINITION_ARN=$(cat currenttaskdef)
+    fi
+
     echo "Rolling back to ${TASK_DEFINITION_ARN}"
     $AWS_ECS update-service --cluster $CLUSTER --service $SERVICE --task-definition $TASK_DEFINITION_ARN > /dev/null
 }
@@ -537,6 +559,9 @@ if [ "$BASH_SOURCE" == "$0" ]; then
             --wait-completion)
                 WAIT_COMPLETION=true
                 ;;
+            --rollback)
+                IS_ROLLBACK=true
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 ;;
@@ -564,6 +589,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         assumeRole
     fi
 
+    if [[ "$IS_ROLLBACK" != false ]]; then
+        rollback
+
+        exit 1
+    fi
 
     # Determine image name
     parseImageName

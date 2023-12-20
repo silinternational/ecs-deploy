@@ -32,7 +32,9 @@ Usage
                                       Note: This number must be 1 or higher (i.e. keep only the current revision ACTIVE).
                                             Max definitions causes all task revisions not matching criteria to be deregistered, even if they're created manually.
                                             Script will only perform deregistration if deployment succeeds.
-        --enable-rollback             Rollback task definition if new version is not running before TIMEOUT
+        --enable-rollback             Rollback task definition if new version is not running before TIMEOUT        
+        --wait-completion             Wait for the full deployment completion by checking if the service is stable
+        --rollback                    Rollback task definition to the previous one used before the deployment
         -v | --verbose                Verbose output
              --version                Display the version
 
@@ -40,6 +42,10 @@ Usage
       Simple (Using env vars for AWS settings):
 
         ecs-deploy -c production1 -n doorman-service -i docker.repo.com/doorman:latest
+
+      Rollback (Using env vars for AWS settings):
+
+        ecs-deploy --rollback -c production1 -n doorman-service
 
       All options:
 
