@@ -138,7 +138,7 @@ function assertRequiredArgumentsSet() {
               AWS_ECS="$AWS_ECS --profile $AWS_PROFILE"
     fi
 
-    if [[ "$IS_ROLLBACK" != false  ]]; then
+    if [[ "$IS_ROLLBACK" == true  ]]; then
       if [ $CLUSTER == false ]; then
           echo "CLUSTER is required. You can pass the value using -c or --cluster"
           exit 5
@@ -589,7 +589,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         assumeRole
     fi
 
-    if [[ "$IS_ROLLBACK" != false ]]; then
+    if [[ "$IS_ROLLBACK" == true ]]; then
         rollback
 
         exit 1
