@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.15"
+VERSION="3.10.16"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -47,8 +47,7 @@ Required arguments:
     -c | --cluster               Name of ECS cluster
     -i | --image                 Name of Docker image to run, ex: repo/image:latest
                                  Format: [domain][:port][/repo][/][image][:tag]
-                                 Examples: mariadb, mariadb:latest, silintl/mariadb,
-                                           silintl/mariadb:latest, private.registry.com:8000/repo/image:tag
+                                 Examples: mariadb, mariadb:latest, private.registry.com:8000/repo/image:tag
     --aws-instance-profile       Use the IAM role associated with this instance
 
 Optional arguments:
@@ -252,7 +251,7 @@ function parseImageName() {
       fi
     else
       # check if using root level repo with format like mariadb or mariadb:latest
-      rootRepoRegex="^([a-zA-Z0-9\-]+):?([a-zA-Z0-9\.\-]+)?$"
+      rootRepoRegex="^([a-zA-Z0-9\-]+):?([a-zA-Z0-9\.\-_]+)?$"
       if [[ $IMAGE =~ $rootRepoRegex ]]; then
         img=${BASH_REMATCH[1]}
         if [[ "x$img" == "x" ]]; then

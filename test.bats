@@ -670,3 +670,19 @@ EOF
   [ ! -z $status ]
   [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
 }
+
+@test "test parseImageName using image starting with underscore" {
+  IMAGE="_something:tag123"
+  TAGVAR=false
+  run parseImageName
+  [ $status -eq 13 ]
+}
+
+@test "test parseImageName using image containing an underscore in tag name" {
+  IMAGE="something:tag_123"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "something:tag_123" ]
+  echo "output = $output" 1>&2
+}

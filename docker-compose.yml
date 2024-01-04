@@ -1,17 +1,18 @@
-ecsdeploy:
-    build: .
-    env_file:
-        - local.env
-    volumes:
-        - ./ecs-deploy:/ecs-deploy
+services:
+    ecsdeploy:
+        build: .
+        env_file:
+            - local.env
+        volumes:
+            - ./ecs-deploy:/ecs-deploy
 
-test:
-    build: .
-    env_file:
-        - local.env
-    entrypoint: ["bash"]
-    command: ["/run-tests.sh"]
-    volumes:
-        - ./ecs-deploy:/ecs-deploy
-        - ./run-tests.sh:/run-tests.sh
-        - ./test.bats:/test.bats
+    test:
+        build: .
+        env_file:
+            - local.env
+        entrypoint: ["bash"]
+        command: ["/run-tests.sh"]
+        volumes:
+            - ./ecs-deploy:/ecs-deploy
+            - ./run-tests.sh:/run-tests.sh
+            - ./test.bats:/test.bats
