@@ -436,6 +436,9 @@ function waitForDeplomentCompletion {
 
   WAIT="true"
   DEPLOYMENT_SUCCESS="false"
+  RETRIES=0
+  MAX_RETRIES=10
+  RETRY_STEP=1
   
   while [ "${WAIT}" != "false" ]
   do
@@ -450,8 +453,13 @@ function waitForDeplomentCompletion {
       WAIT="false"
       echo "Deployment completed successfully"
     else
-      WAIT="false"
-      echo "Deployment timeout"
+      if [[ $RETRIES -lt $MAX_RETRIES ]]; then
+          echo "Still waiting for deployment completion"
+          RETRIES=$(( $RETRIES + $RETRY_STEP ))
+      else
+          WAIT="false"
+          echo "Deployment timeout"
+      fi
     fi
   done
 
