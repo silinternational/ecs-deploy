@@ -234,6 +234,7 @@ setup() {
         "status": "ACTIVE",
         "networkMode": "bridge",
         "family": "app-task-def",
+        "memory": 128,
         "requiresAttributes": [
             {
                 "name": "com.amazonaws.ecs.capability.ecr-auth"
@@ -276,7 +277,7 @@ setup() {
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value * " } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
+  expected='{ "family": "app-task-def", "memory": 128, "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value * " } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
   [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
@@ -342,7 +343,7 @@ EOF
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "awsvpc", "executionRoleArn": "arn:aws:iam::121212345678:role/ecsTaskExecutionRole", "requiresCompatibilities": [ "FARGATE" ], "cpu": "256", "memory": "512" }'
+  expected='{ "family": "app-task-def", "memory": null, "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "awsvpc", "executionRoleArn": "arn:aws:iam::121212345678:role/ecsTaskExecutionRole", "requiresCompatibilities": [ "FARGATE" ], "cpu": "256", "memory": "512" }'
   run createNewTaskDefJson
   [ ! -z $status ]
   [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
@@ -426,7 +427,7 @@ EOF
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:latest", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
+  expected='{ "family": "app-task-def", "memory": null, "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:latest", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
   [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
@@ -483,7 +484,7 @@ EOF
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "111222333444.dkr.ecr.eu-west-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
+  expected='{ "family": "app-task-def", "memory": null, "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "111222333444.dkr.ecr.eu-west-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
   [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
@@ -567,7 +568,7 @@ EOF
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "111222333444.dkr.ecr.eu-west-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:latest", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
+  expected='{ "family": "app-task-def", "memory": null, "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "111222333444.dkr.ecr.eu-west-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:latest", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
   [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
@@ -664,7 +665,7 @@ EOF
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:newtag", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:newtag", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
+  expected='{ "family": "app-task-def", "memory": null, "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:newtag", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:newtag", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   echo $output
   [ ! -z $status ]
