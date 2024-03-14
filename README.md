@@ -1,7 +1,7 @@
 ecs-deploy
 =================
 
-[ ![Codeship Status for silinternational/ecs-deploy](https://app.codeship.com/projects/393a91e0-da8d-0134-6603-1e487e818871/status?branch=master)](https://app.codeship.com/projects/203720)
+![Status for silinternational/ecs-deploy](https://github.com/silinternational/ecs-deploy/actions/workflows/build-and-deploy.yml/badge.svg?branch=master)
 
 This script uses the Task Definition and Service entities in Amazon's ECS to instigate an automatic blue/green deployment.
 
