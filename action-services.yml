@@ -1,10 +1,6 @@
-version: "2"
+version: "3"
 
 services:
   test:
     build: .
-    command: ["/run-tests.sh"]
-    volumes:
-      - ./ecs-deploy:/ecs-deploy
-      - ./run-tests.sh:/run-tests.sh
-      - ./test.bats:/test.bats
+    entrypoint: ["/run-tests.sh"]
