@@ -1,4 +1,4 @@
-name: Build and Publish
+name: Continuous Integration
 
 on:
   push:
