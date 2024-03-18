@@ -63,19 +63,19 @@ are to add support for new AWS CLI features.
     Examples:
       Simple deployment of a service (Using env vars for AWS settings):
 
-        ecs-deploy -c production1 -n doorman-service -i docker.repo.com/doorman:latest
+        ecs-deploy -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container:latest
 
       All options:
 
-        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -D 2 -e CI_TIMESTAMP -v
+        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container -m 50 -M 100 -t 240 -D 2 -e CI_TIMESTAMP -v
 
       Updating a task definition with a new image:
 
-        ecs-deploy -d open-door-task -i docker.repo.com/doorman:17
+        ecs-deploy -d my-task-definition -i my.private.repo.com/frontend_container:17
 
       Using profiles (for STS delegated credentials, for instance):
 
-        ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -p my-profile -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container -t 240 -e CI_TIMESTAMP -v
 
       Update just the tag on whatever image is found in ECS Task (supports multi-container tasks):
 
@@ -147,7 +147,7 @@ be an unlikely use case._
 This behavior allows two possible process to specify which images, and therefore which configurations, to deploy. First, you
 may set the tag to always be `latest` (or some other static value), like so:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:latest
+    ecs-deploy -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container:latest
 
 This will result in identical new versions of the Task Definition being created, but the Service will still do a blue/green
 deployment, and will so will pull down the latest version (if you previously pushed it into the registry).
@@ -155,11 +155,11 @@ deployment, and will so will pull down the latest version (if you previously pus
 Alternatively, you may specify some other means of obtaining the tag, since the script `eval`s the image string. You could use
 git tags as a map to docker tags:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i 'my.private.repo.com/frontend_container:`git describe`'
+    ecs-deploy -c my-cluster-name -n my-service-name -i 'my.private.repo.com/frontend_container:`git describe`'
 
 Or perhaps just obtain read the docker tag from another file in your development:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i 'my.private.repo.com/frontend_container:$(< VERSION)'
+    ecs-deploy -c my-cluster-name -n my-service-name -i 'my.private.repo.com/frontend_container:$(< VERSION)'
 
 In any case, just make sure your process builds, tags, and pushes the docker image you use to the repository before running
 this script.
@@ -176,7 +176,7 @@ holds the value you wish to use for the tag.
 
 For example:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container -e CI_TIMESTAMP
+    ecs-deploy -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container -e CI_TIMESTAMP
 
 ## AWS IAM Policy Configuration
 
