@@ -1,6 +1,6 @@
 # ecs-deploy
 
-![Status for silinternational/ecs-deploy](https://github.com/silinternational/ecs-deploy/actions/workflows/build-and-deploy.yml/badge.svg?branch=master)
+![Status for silinternational/ecs-deploy](https://github.com/silinternational/ecs-deploy/actions/workflows/ci.yml/badge.svg?branch=master)
 
 This script uses the Task Definition and Service entities in Amazon's ECS to instigate an automatic blue/green deployment.
 
