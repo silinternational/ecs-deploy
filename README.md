@@ -1,19 +1,16 @@
-ecs-deploy
-=================
+# ecs-deploy
 
 ![Status for silinternational/ecs-deploy](https://github.com/silinternational/ecs-deploy/actions/workflows/build-and-deploy.yml/badge.svg?branch=master)
 
 This script uses the Task Definition and Service entities in Amazon's ECS to instigate an automatic blue/green deployment.
 
-NOTE: Maintenance Only
-----------------------
+## NOTE: Maintenance Only
 
 `ecs-deploy` is now in maintenance mode. In other words, we are considering it
 "feature complete" and will generally only consider PRs if they are bugfixes or
 are to add support for new AWS CLI features.
 
-Usage
------
+## Usage
 
     One of the following is required:
         -n | --service-name     Name of service to deploy
@@ -87,21 +84,19 @@ Usage
     Notes:
       - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
 
-Installation
-------------
+## Installation
 
-* Install and configure [aws-cli](http://docs.aws.amazon.com/cli/latest/userguide/tutorial-ec2-ubuntu.html#install-cli)
-* Install [jq](https://github.com/stedolan/jq/wiki/Installation)
-* Install ecs-deploy:
+- Install and configure [aws-cli](http://docs.aws.amazon.com/cli/latest/userguide/tutorial-ec2-ubuntu.html#install-cli)
+- Install [jq](https://github.com/stedolan/jq/wiki/Installation)
+- Install ecs-deploy:
+
 ```
 curl https://raw.githubusercontent.com/silinternational/ecs-deploy/master/ecs-deploy | sudo tee /usr/bin/ecs-deploy
 sudo chmod +x /usr/bin/ecs-deploy
 
 ```
 
-
-How it works
-------------
+## How it works
 
 _Note: Some nouns in the next paragraphs are capitalized to indicate that they are words which have specific meanings in AWS_
 
@@ -129,11 +124,11 @@ _Naturally, enough computing resources must be available in the ECS cluster for 
 Consequently, all that is needed to deploy a new version of an application is to update the Service which is running its
 Tasks to point at a new version of the Task Definition. `ecs-deploy` uses the python `aws` utility to do this. It,
 
-  * Pulls the JSON representation of the in-use Task Definition; or the most recently created if using `--use-latest-task-def`
-  * Edits it
-  * Defines a new version, with the changes
-  * Updates the Service to use the new version
-  * Waits, querying Amazon's API to make sure that the Service has been able to create a new Task
+- Pulls the JSON representation of the in-use Task Definition; or the most recently created if using `--use-latest-task-def`
+- Edits it
+- Defines a new version, with the changes
+- Updates the Service to use the new version
+- Waits, querying Amazon's API to make sure that the Service has been able to create a new Task
 
 The second step merits more explanation: since a Task Definition [may] define multiple containers, the question arises, "what
 must be changed to create a new revision?" Empirically, the surprising answer is nothing; Amazon allows you to create a new
@@ -169,8 +164,8 @@ Or perhaps just obtain read the docker tag from another file in your development
 In any case, just make sure your process builds, tags, and pushes the docker image you use to the repository before running
 this script.
 
-Use Environment Variable for tag name value
--------------------------------------------
+## Use Environment Variable for tag name value
+
 In some cases you may want to use an environment variable for the tag name of your image.
 For example, we want to use a unique docker image/tag for each task definition. This
 gives us the ability to revert/rollback changes by just selecting a previous task
@@ -183,8 +178,8 @@ For example:
 
     ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container -e CI_TIMESTAMP
 
-AWS IAM Policy Configuration
--------------------------------------------
+## AWS IAM Policy Configuration
+
 Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.com/documentation/iam/):
 
 ```json
@@ -212,15 +207,15 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
 }
 ```
 
-Troubleshooting
----------------
- - You must provide AWS credentials in one of the supported formats. If you do
-   not, you'll see some error output from the AWS CLI, something like:
+## Troubleshooting
 
-        You must specify a region. You can also configure your region by running "aws configure".
+- You must provide AWS credentials in one of the supported formats. If you do
+  not, you'll see some error output from the AWS CLI, something like:
 
-Testing
--------
+       You must specify a region. You can also configure your region by running "aws configure".
+
+## Testing
+
 Automated tests are performed using [bats](https://github.com/sstephenson/bats).
 The goal of testing is to ensure that updates/changes do not break core functionality.
 Unfortunately not all of `ecs-deploy` is testable since portions interact with
@@ -229,9 +224,10 @@ is tested.
 
 Any new functionality and pull requests should come with tests as well (if possible).
 
-Github Actions Support
--------
-Github Actions support is available.  Add a code block similar to that below to your actions yaml file.  Parameters are passed to the ecs-deploy tool under 'with' section. For each parameter, the parameter name followed by _cmd must be called with the appropriate parameter option like '--aws-access-key' in addition to supplying the parameter aws_access_key with the appropriate value.
+## Github Actions Support
+
+Github Actions support is available. Add a code block similar to that below to your actions yaml file. Parameters are passed to the ecs-deploy tool under 'with' section. For each parameter, the parameter name followed by \_cmd must be called with the appropriate parameter option like '--aws-access-key' in addition to supplying the parameter aws_access_key with the appropriate value.
+
 ```
 deploy_to_ecs:
   name: 'Deploy updated container image via blue/green deployment to ECS service.'
