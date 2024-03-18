@@ -1,19 +1,16 @@
-ecs-deploy
-=================
+# ecs-deploy
 
-[ ![Codeship Status for silinternational/ecs-deploy](https://app.codeship.com/projects/393a91e0-da8d-0134-6603-1e487e818871/status?branch=master)](https://app.codeship.com/projects/203720)
+![Status for silinternational/ecs-deploy](https://github.com/silinternational/ecs-deploy/actions/workflows/build-and-deploy.yml/badge.svg?branch=master)
 
 This script uses the Task Definition and Service entities in Amazon's ECS to instigate an automatic blue/green deployment.
 
-NOTE: Maintenance Only
-----------------------
+## NOTE: Maintenance Only
 
 `ecs-deploy` is now in maintenance mode. In other words, we are considering it
 "feature complete" and will generally only consider PRs if they are bugfixes or
 are to add support for new AWS CLI features.
 
-Usage
------
+## Usage
 
     One of the following is required:
         -n | --service-name     Name of service to deploy
@@ -66,19 +63,19 @@ Usage
     Examples:
       Simple deployment of a service (Using env vars for AWS settings):
 
-        ecs-deploy -c production1 -n doorman-service -i docker.repo.com/doorman:latest
+        ecs-deploy -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container:latest
 
       All options:
 
-        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c production1 -n doorman-service -i docker.repo.com/doorman -m 50 -M 100 -t 240 -D 2 -e CI_TIMESTAMP -v
+        ecs-deploy -k ABC123 -s SECRETKEY -r us-east-1 -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container -m 50 -M 100 -t 240 -D 2 -e CI_TIMESTAMP -v
 
       Updating a task definition with a new image:
 
-        ecs-deploy -d open-door-task -i docker.repo.com/doorman:17
+        ecs-deploy -d my-task-definition -i my.private.repo.com/frontend_container:17
 
       Using profiles (for STS delegated credentials, for instance):
 
-        ecs-deploy -p PROFILE -c production1 -n doorman-service -i docker.repo.com/doorman -t 240 -e CI_TIMESTAMP -v
+        ecs-deploy -p my-profile -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container -t 240 -e CI_TIMESTAMP -v
 
       Update just the tag on whatever image is found in ECS Task (supports multi-container tasks):
 
@@ -87,21 +84,19 @@ Usage
     Notes:
       - If a tag is not found in image and an ENV var is not used via -e, it will default the tag to "latest"
 
-Installation
-------------
+## Installation
 
-* Install and configure [aws-cli](http://docs.aws.amazon.com/cli/latest/userguide/tutorial-ec2-ubuntu.html#install-cli)
-* Install [jq](https://github.com/stedolan/jq/wiki/Installation)
-* Install ecs-deploy:
+- Install and configure [aws-cli](http://docs.aws.amazon.com/cli/latest/userguide/tutorial-ec2-ubuntu.html#install-cli)
+- Install [jq](https://github.com/stedolan/jq/wiki/Installation)
+- Install ecs-deploy:
+
 ```
 curl https://raw.githubusercontent.com/silinternational/ecs-deploy/master/ecs-deploy | sudo tee /usr/bin/ecs-deploy
 sudo chmod +x /usr/bin/ecs-deploy
 
 ```
 
-
-How it works
-------------
+## How it works
 
 _Note: Some nouns in the next paragraphs are capitalized to indicate that they are words which have specific meanings in AWS_
 
@@ -129,11 +124,11 @@ _Naturally, enough computing resources must be available in the ECS cluster for 
 Consequently, all that is needed to deploy a new version of an application is to update the Service which is running its
 Tasks to point at a new version of the Task Definition. `ecs-deploy` uses the python `aws` utility to do this. It,
 
-  * Pulls the JSON representation of the in-use Task Definition; or the most recently created if using `--use-latest-task-def`
-  * Edits it
-  * Defines a new version, with the changes
-  * Updates the Service to use the new version
-  * Waits, querying Amazon's API to make sure that the Service has been able to create a new Task
+- Pulls the JSON representation of the in-use Task Definition; or the most recently created if using `--use-latest-task-def`
+- Edits it
+- Defines a new version, with the changes
+- Updates the Service to use the new version
+- Waits, querying Amazon's API to make sure that the Service has been able to create a new Task
 
 The second step merits more explanation: since a Task Definition [may] define multiple containers, the question arises, "what
 must be changed to create a new revision?" Empirically, the surprising answer is nothing; Amazon allows you to create a new
@@ -152,7 +147,7 @@ be an unlikely use case._
 This behavior allows two possible process to specify which images, and therefore which configurations, to deploy. First, you
 may set the tag to always be `latest` (or some other static value), like so:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:latest
+    ecs-deploy -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container:latest
 
 This will result in identical new versions of the Task Definition being created, but the Service will still do a blue/green
 deployment, and will so will pull down the latest version (if you previously pushed it into the registry).
@@ -160,34 +155,31 @@ deployment, and will so will pull down the latest version (if you previously pus
 Alternatively, you may specify some other means of obtaining the tag, since the script `eval`s the image string. You could use
 git tags as a map to docker tags:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i 'my.private.repo.com/frontend_container:`git describe`'
+    ecs-deploy -c my-cluster-name -n my-service-name -i 'my.private.repo.com/frontend_container:`git describe`'
 
 Or perhaps just obtain read the docker tag from another file in your development:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i 'my.private.repo.com/frontend_container:$(< VERSION)'
+    ecs-deploy -c my-cluster-name -n my-service-name -i 'my.private.repo.com/frontend_container:$(< VERSION)'
 
 In any case, just make sure your process builds, tags, and pushes the docker image you use to the repository before running
 this script.
 
-Use Environment Variable for tag name value
--------------------------------------------
+## Use Environment Variable for tag name value
+
 In some cases you may want to use an environment variable for the tag name of your image.
-For instance, we use Codeship for continuous integration and deployment. In their Docker
-environment they can build images and tag them with different variables, such as
-the current unix timestamp. We want to use these unique and changing values for image tags
-so that each task definition refers to a unique docker image/tag. This gives us the
-ability to revert/rollback changes by just selecting a previous task definition and
-updating the service. We plan to add a revert command/option to ecs-deploy to simplify this further.
+For example, we want to use a unique docker image/tag for each task definition. This
+gives us the ability to revert/rollback changes by just selecting a previous task
+definition and updating the service.
 
-Using the ```-e``` argument you can provide the name of an environment variable that
-holds the value you wish to use for the tag. On Codeship they set an env var named CI_TIMESTAMP.
+Using the `-e` argument you can provide the name of an environment variable that
+holds the value you wish to use for the tag.
 
-So we use ```ecs-deploy``` like this:
+For example:
 
-    ecs-deploy -c production1 -n doorman-api -i my.private.repo/doorman-api -e CI_TIMESTAMP
+    ecs-deploy -c my-cluster-name -n my-service-name -i my.private.repo.com/frontend_container -e CI_TIMESTAMP
 
-AWS IAM Policy Configuration
--------------------------------------------
+## AWS IAM Policy Configuration
+
 Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.com/documentation/iam/):
 
 ```json
@@ -215,15 +207,15 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
 }
 ```
 
-Troubleshooting
----------------
- - You must provide AWS credentials in one of the supported formats. If you do
-   not, you'll see some error output from the AWS CLI, something like:
+## Troubleshooting
 
-        You must specify a region. You can also configure your region by running "aws configure".
+- You must provide AWS credentials in one of the supported formats. If you do
+  not, you'll see some error output from the AWS CLI, something like:
 
-Testing
--------
+       You must specify a region. You can also configure your region by running "aws configure".
+
+## Testing
+
 Automated tests are performed using [bats](https://github.com/sstephenson/bats).
 The goal of testing is to ensure that updates/changes do not break core functionality.
 Unfortunately not all of `ecs-deploy` is testable since portions interact with
@@ -232,9 +224,10 @@ is tested.
 
 Any new functionality and pull requests should come with tests as well (if possible).
 
-Github Actions Support
--------
-Github Actions support is available.  Add a code block similar to that below to your actions yaml file.  Parameters are passed to the ecs-deploy tool under 'with' section. For each parameter, the parameter name followed by _cmd must be called with the appropriate parameter option like '--aws-access-key' in addition to supplying the parameter aws_access_key with the appropriate value.
+## Github Actions Support
+
+Github Actions support is available. Add a code block similar to that below to your actions yaml file. Parameters are passed to the ecs-deploy tool under 'with' section. For each parameter, the parameter name followed by \_cmd must be called with the appropriate parameter option like '--aws-access-key' in addition to supplying the parameter aws_access_key with the appropriate value.
+
 ```
 deploy_to_ecs:
   name: 'Deploy updated container image via blue/green deployment to ECS service.'
