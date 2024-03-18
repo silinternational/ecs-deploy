@@ -172,19 +172,16 @@ this script.
 Use Environment Variable for tag name value
 -------------------------------------------
 In some cases you may want to use an environment variable for the tag name of your image.
-For instance, we use Codeship for continuous integration and deployment. In their Docker
-environment they can build images and tag them with different variables, such as
-the current unix timestamp. We want to use these unique and changing values for image tags
-so that each task definition refers to a unique docker image/tag. This gives us the
-ability to revert/rollback changes by just selecting a previous task definition and
-updating the service. We plan to add a revert command/option to ecs-deploy to simplify this further.
+For example, we want to use a unique docker image/tag for each task definition. This
+gives us the ability to revert/rollback changes by just selecting a previous task
+definition and updating the service.
 
-Using the ```-e``` argument you can provide the name of an environment variable that
-holds the value you wish to use for the tag. On Codeship they set an env var named CI_TIMESTAMP.
+Using the `-e` argument you can provide the name of an environment variable that
+holds the value you wish to use for the tag.
 
-So we use ```ecs-deploy``` like this:
+For example:
 
-    ecs-deploy -c production1 -n doorman-api -i my.private.repo/doorman-api -e CI_TIMESTAMP
+    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:latest -e CI_TIMESTAMP
 
 AWS IAM Policy Configuration
 -------------------------------------------
