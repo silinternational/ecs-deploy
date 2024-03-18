@@ -181,7 +181,7 @@ holds the value you wish to use for the tag.
 
 For example:
 
-    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container:latest -e CI_TIMESTAMP
+    ecs-deploy -c CLUSTERNAME -n SERVICENAME -i my.private.repo.com/frontend_container -e CI_TIMESTAMP
 
 AWS IAM Policy Configuration
 -------------------------------------------
