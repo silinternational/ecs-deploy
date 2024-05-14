@@ -686,3 +686,60 @@ EOF
   [ "$output" == "something:tag_123" ]
   echo "output = $output" 1>&2
 }
+
+@test "test createNewTaskDefJson with single container in definition" {
+  imageWithoutTag="121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo"
+  useImage="121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111"
+  TASK_DEFINITION=$(cat <<EOF
+{
+    "taskDefinition": {
+        "status": "ACTIVE",
+        "networkMode": "bridge",
+        "family": "app-task-def",
+        "requiresAttributes": [
+            {
+                "name": "com.amazonaws.ecs.capability.ecr-auth"
+            }
+        ],
+        "volumes": [],
+        "taskDefinitionArn": "arn:aws:ecs:us-east-1:121212345678:task-definition/app-task-def:123",
+        "containerDefinitions": [
+            {
+                "environment": [
+                    {
+                        "name": "KEY",
+                        "value": "value * "
+                    }
+                ],
+                "name": "API",
+                "links": [],
+                "mountPoints": [],
+                "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1487623908",
+                "essential": true,
+                "portMappings": [
+                    {
+                        "protocol": "tcp",
+                        "containerPort": 80,
+                        "hostPort": 10080
+                    }
+                ],
+                "entryPoint": [],
+                "memory": 128,
+                "command": [
+                    "/data/run.sh"
+                ],
+                "cpu": 200,
+                "volumesFrom": []
+            }
+        ],
+        "placementConstraints": null,
+        "revision": 123
+    }
+}
+EOF
+)
+  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value * " } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
+  run createNewTaskDefJson
+  [ ! -z $status ]
+  [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
+}
