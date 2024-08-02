@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run tests
-        run: docker-compose -f action-services.yml run test
+        run: docker compose -f action-services.yml run test
 
   build-and-publish:
     name: Build and Publish
