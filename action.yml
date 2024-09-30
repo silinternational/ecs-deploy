@@ -1,55 +1,65 @@
-name: 'ESC-Deploy'
+name: 'ECS-Deploy'
 description: 'Simple shell script for initiating blue-green deployments on Amazon EC2 Container Service (ECS)'
 inputs:
   aws_access_key_cmd:
     description: '--aws-access-key'
+    default: '--aws-access-key'
     required: true
   aws_access_key:
     description: 'AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID'
     required: true
   aws_secret_key_cmd:
     description: '--aws-secret-key'
+    default: '--aws-secret-key'
     required: true
   aws_secret_key:
     description: 'AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY'
     required: true
   service_name_cmd:
     description: '--service-name'
+    default: '--service-name'
   service_name:
     description: 'Name of service to deploy'
     required: false
   task_definition_cmd:
     description: '--task-definition'
+    default: '--task-definition'
   task_definition:
     description: 'Name of task definition to deploy'
     required: false
   region_cmd:
     description: '--region'
+    default: '--region'
   region:
     description: 'AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION'
     required: true
   profile_cmd:
     description: '--profile'
+    default: '--profile'
   profile:
     description: 'AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed'
     required: true
   cluster_cmd:
     description: '--cluster'
+    default: '--cluster'
   cluster:
     description: 'Name of ECS cluster'
     required: true
   image_cmd:
     description: '--image'
+    default: '--image'
   image:
     description: 'Name of Docker image to run, ex: repo/image:latest'
     required: true
   aws_assume_role_cmd:
     description: '--aws-assume-role'
+    default: '--aws-assume-role'
   aws_assume_role:
     description: 'ARN for AWS Role to assume for ecs-deploy operations.'
     required: false
   desired_count_cmd:
     description: '--desired-count'
+    default: '--desired-count'
   desired_count:
     description: 'The number of instantiations of the task to place and keep running in your service.'
     required: false
@@ -76,50 +86,60 @@ inputs:
     default: '90'
   tag_env_var_cmd:
     description: '--tag-env-var'
+    default: '--tag-env-var'
   tag_env_var:
     description: 'Get image tag name from environment variable. If provided this will override value specified in image name argument.'
     required: false
   tag_only_cmd:
     description: '--tag-only'
+    default: '--tag-only'
   tag_only:
     description: 'New tag to apply to all images defined in the task (multi-container task). If provided this will override value specified in image name argument.'
     required: false
   max_definitions_cmd:
     description: '--max-definition'
+    default: '--max-definition'
   max_definitions:
     description: 'Number of Task Definition Revisions to persist before deregistering oldest revisions.'
     required: false
   enable_rollback_cmd:
     description: '--enable-rollback'
+    default: '--enable-rollback'
   enable_rollback:
     description: 'Rollback task definition if new version is not running before TIMEOUT'
     required: false
   use_latest_task_def_cmd:
     description: '--use-latest-task-def'
+    default: '--use-latest-task-def'
   use_latest_task_def:
     description: 'Will use the most recently created task definition as its base, rather than the last used.'
     required: false
   force_new_deployment_cmd:
     description: '--force-new-deployment'
+    default: '--force-new-deployment'
   force_new_deployment:
     description: 'Force a new deployment of the service.'
     required: false
   run_task_cmd:
     description: '--run-task'
+    default: '--run-task'
   run_task:
     description: 'Run created task now. If you set this, service-name are not needed.'
     required: false
   wait_for_success_cmd:
     description: '--wait-for-success'
+    default: '--wait-for-success'
   wait_for_success:
     description: 'Wait for task execution to complete and to receive the exitCode 0.'
     required: false
   skip_deployments_check_cmd:
     description: '--skip-deployments-check'
+    default: '--skip-deployments-check'
   skip_deployments_check:
     description: 'Skip deployments check for services that take too long to drain old tasks'
   copy_task_definition_tags_cmd:
     description: '--copy-task-definition-tags'
+    default: '--copy-task-definition-tags'
   copy_task_definition_tags:
     description: 'Copy the existing task definition tags to the new task definition revision'
     required: false
