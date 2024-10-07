@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.17"
+VERSION="3.10.18"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -43,7 +43,7 @@ Required arguments:
     -k | --aws-access-key        AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
     -s | --aws-secret-key        AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
     -r | --region                AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
-    -p | --profile               AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
+    -p | --profile               AWS Profile to use - If you set this, then aws-access-key, aws-secret-key and region are not needed
     -c | --cluster               Name of ECS cluster
     -i | --image                 Name of Docker image to run, ex: repo/image:latest
                                  Format: [domain][:port][/repo][/][image][:tag]
@@ -374,7 +374,7 @@ function createNewTaskDefJson() {
 
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
-    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints executionRoleArn runtimePlatform ephemeralStorage)
+    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints executionRoleArn runtimePlatform ephemeralStorage proxyConfiguration)
     for i in "${CONDITIONAL_OPTIONS[@]}"; do
       re=".*${i}.*"
       if [[ "$DEF" =~ $re ]]; then

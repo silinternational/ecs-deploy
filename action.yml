@@ -1,4 +1,4 @@
-name: 'ESC-Deploy'
+name: 'ECS-Deploy'
 description: 'Simple shell script for initiating blue-green deployments on Amazon EC2 Container Service (ECS)'
 inputs:
   aws_access_key_cmd:
