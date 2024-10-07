@@ -43,7 +43,7 @@ Required arguments:
     -k | --aws-access-key        AWS Access Key ID. May also be set as environment variable AWS_ACCESS_KEY_ID
     -s | --aws-secret-key        AWS Secret Access Key. May also be set as environment variable AWS_SECRET_ACCESS_KEY
     -r | --region                AWS Region Name. May also be set as environment variable AWS_DEFAULT_REGION
-    -p | --profile               AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are needed
+    -p | --profile               AWS Profile to use - If you set this aws-access-key, aws-secret-key and region are not needed
     -c | --cluster               Name of ECS cluster
     -i | --image                 Name of Docker image to run, ex: repo/image:latest
                                  Format: [domain][:port][/repo][/][image][:tag]
