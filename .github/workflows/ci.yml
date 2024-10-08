@@ -2,6 +2,8 @@ name: Continuous Integration
 
 on:
   push:
+    branches: ['master','main']  # Trigger on the pushes to master & main branches
+    tags: [ '[0-9]+.[0-9]+.[0-9]+' ]
 
 jobs:
   test:
@@ -18,19 +20,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
+    # Step to login to DockerHub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
+          username: ${{ secrets.DOCKERHUB_USERNAME}}
+          password: ${{ secrets.DOCKERHUB_TOKEN}}
+      
+    # Step to login to GitHub Container Registry
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor}}
+          password: ${{ secrets.GITHUB_TOKEN}}
+      
+    # Extract metadata for the Docker images using the semver
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ vars.DOCKER_ORG }}/ecs-deploy
+          images: |
+            ${{ vars.DOCKER_ORG }}/ecs-deploy  # the name needs to be static "ecs-deploy"
+            ghcr.io/${{ github.repository_owner }}/ecs-deploy
+          tags: |
+           type=semver,pattern={{version}}
+          
 
+    # Build and push Docker image to GHCR and Docker Hub
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -38,3 +56,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+
+      
