@@ -45,7 +45,8 @@ jobs:
             ${{ vars.DOCKER_ORG }}/ecs-deploy  # the name needs to be static "ecs-deploy"
             ghcr.io/${{ github.repository_owner }}/ecs-deploy
           tags: |
-           type=semver,pattern={{version}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major.minor}}
           
 
     # Build and push Docker image to GHCR and Docker Hub
