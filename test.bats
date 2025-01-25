@@ -94,6 +94,14 @@ setup() {
   [ "$output" == "mariadb:1.2.3" ]
 }
 
+@test "test parseImageName root image with digest" {
+  IMAGE="mariadb@sha256:1234567890abcdef"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "mariadb@sha256:1234567890abcdef" ]
+}
+
 @test "test parseImageName repo image no tag" {
   IMAGE="repo/image"
   TAGVAR=false
@@ -108,6 +116,14 @@ setup() {
   run parseImageName
   [ ! -z $status ]
   [ "$output" == "repo/image:v1.2.3" ]
+}
+
+@test "test parseImageName repo image with digest" {
+  IMAGE="repo/image@sha256:1234567890abcdef"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "repo/image@sha256:1234567890abcdef" ]
 }
 
 @test "test parseImageName repo multilevel image no tag" {
@@ -126,6 +142,14 @@ setup() {
   [ "$output" == "repo/multi/level/image:v1.2.3" ]
 }
 
+@test "test parseImageName repo multilevel image with digest" {
+  IMAGE="repo/multi/level/image@sha256:1234567890abcdef"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "repo/multi/level/image@sha256:1234567890abcdef" ]
+}
+
 @test "test parseImageName domain plus repo image no tag" {
   IMAGE="docker.domain.com/repo/image"
   TAGVAR=false
@@ -140,6 +164,14 @@ setup() {
   run parseImageName
   [ ! -z $status ]
   [ "$output" == "docker.domain.com/repo/image:1.2.3" ]
+}
+
+@test "test parseImageName domain plus repo image with digest" {
+  IMAGE="docker.domain.com/repo/image@sha256:1234567890abcdef"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "docker.domain.com/repo/image@sha256:1234567890abcdef" ]
 }
 
 @test "test parseImageName domain plus repo multilevel image no tag" {
@@ -158,6 +190,14 @@ setup() {
   [ "$output" == "docker.domain.com/repo/multi/level/image:1.2.3" ]
 }
 
+@test "test parseImageName domain plus repo multilevel image with digest" {
+  IMAGE="docker.domain.com/repo/multi/level/image@sha256:1234567890abcdef"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "docker.domain.com/repo/multi/level/image@sha256:1234567890abcdef" ]
+}
+
 @test "test parseImageName domain plus port plus repo image no tag" {
   IMAGE="docker.domain.com:8080/repo/image"
   TAGVAR=false
@@ -174,6 +214,14 @@ setup() {
   [ "$output" == "docker.domain.com:8080/repo/image:1.2.3" ]
 }
 
+@test "test parseImageName domain plus port plus repo image with digest" {
+  IMAGE="docker.domain.com:8080/repo/image@sha256:1234567890abcdef"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "docker.domain.com:8080/repo/image@sha256:1234567890abcdef" ]
+}
+
 @test "test parseImageName domain plus port plus repo multilevel image no tag" {
   IMAGE="docker.domain.com:8080/repo/multi/level/image"
   TAGVAR=false
@@ -188,6 +236,14 @@ setup() {
   run parseImageName
   [ ! -z $status ]
   [ "$output" == "docker.domain.com:8080/repo/multi/level/image:1.2.3" ]
+}
+
+@test "test parseImageName domain plus port plus repo multilevel image with digest" {
+  IMAGE="docker.domain.com:8080/repo/multi/level/image@sha256:1234567890abcdef"
+  TAGVAR=false
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "docker.domain.com:8080/repo/multi/level/image@sha256:1234567890abcdef" ]
 }
 
 @test "test parseImageName domain plus port plus repo image with tag from var" {
@@ -223,6 +279,15 @@ setup() {
   run parseImageName
   [ ! -z $status ]
   [ "$output" == "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1487623908" ]
+}
+
+@test "test parseImageName using ecr style image name and tag from var with digest" {
+  IMAGE="docker.domain.com:8080/repo/image@sha256:1234567890abcdef"
+  TAGVAR="CI_TIMESTAMP"
+  CI_TIMESTAMP="1487623908"
+  run parseImageName
+  [ ! -z $status ]
+  [ "$output" == "docker.domain.com:8080/repo/image:1487623908" ]
 }
 
 @test "test createNewTaskDefJson with single container in definition" {
