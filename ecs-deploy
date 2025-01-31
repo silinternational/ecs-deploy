@@ -46,7 +46,7 @@ Required arguments:
     -p | --profile               AWS Profile to use - If you set this, then aws-access-key, aws-secret-key and region are not needed
     -c | --cluster               Name of ECS cluster
     -i | --image                 Name of Docker image to run, ex: repo/image:latest
-                                 Format: [domain][:port][/repo][/][image][:tag]
+                                 Format: [domain][:port][/repo][/][image][:tag|@digest]
                                  Examples: mariadb, mariadb:latest, private.registry.com:8000/repo/image:tag
     --aws-instance-profile       Use the IAM role associated with this instance
 
@@ -210,12 +210,13 @@ function parseImageName() {
     # - port
     # - repo
     # - image
-    # - tag
+    # - tagOrDigest
+    # - emptyOrSha
     # If a group is missing it will be an empty string
     if [[ "x$TAGONLY" == "x" ]]; then
-       imageRegex="^([a-zA-Z0-9\.\-]+):?([0-9]+)?/([a-zA-Z0-9\._\-]+)(/[\/a-zA-Z0-9\._\-]+)?:?([a-zA-Z0-9\._\-]+)?$"
+      imageRegex="^([a-zA-Z0-9\.\-]+):?([0-9]+)?/([a-zA-Z0-9\._\-]+)(/[\/a-zA-Z0-9\._\-]+)?:?((@sha256:)?[a-zA-Z0-9\._\-]+)?$"
     else
-       imageRegex="^:?([a-zA-Z0-9\._-]+)?$"
+      imageRegex="^:?([a-zA-Z0-9\._-]+)?$"
     fi
 
     if [[ $IMAGE =~ $imageRegex ]]; then
@@ -225,7 +226,13 @@ function parseImageName() {
         port=${BASH_REMATCH[2]}
         repo=${BASH_REMATCH[3]}
         img=${BASH_REMATCH[4]/#\//}
-        tag=${BASH_REMATCH[5]}
+        tagOrDigest=${BASH_REMATCH[5]}
+        emptyOrSha=${BASH_REMATCH[6]}
+        if [[ "x$emptyOrSha" == "x" ]]; then
+          tag=${tagOrDigest}
+        else
+          digest=${tagOrDigest}
+        fi
 
         # Validate what we received to make sure we have the pieces needed
         if [[ "x$domain" == "x" ]]; then
@@ -251,14 +258,20 @@ function parseImageName() {
       fi
     else
       # check if using root level repo with format like mariadb or mariadb:latest
-      rootRepoRegex="^([a-zA-Z0-9\-]+):?([a-zA-Z0-9\.\-_]+)?$"
+      rootRepoRegex="^([a-zA-Z0-9\-]+):?((@sha256:)?[a-zA-Z0-9\.\-_]+)?$"
       if [[ $IMAGE =~ $rootRepoRegex ]]; then
         img=${BASH_REMATCH[1]}
         if [[ "x$img" == "x" ]]; then
           echo "Invalid image name. See usage for supported formats."
           exit 12
         fi
-        tag=${BASH_REMATCH[2]}
+        tagOrDigest=${BASH_REMATCH[2]}
+        emptyOrSha=${BASH_REMATCH[3]}
+        if [[ "x$emptyOrSha" == "x" ]]; then
+          tag=${tagOrDigest}
+        else
+          digest=${tagOrDigest}
+        fi
 
         # for root level repo, initialize unused variables for checks when rebuilding image below
         domain=""
@@ -279,6 +292,9 @@ function parseImageName() {
         tag=${!TAGVAR}
         if [[ "x$tag" == "x" ]]; then
           tag="latest"
+        else 
+          # If !TAGVAR isn't empty, we should use the value of the env var as the tag whether IMAGE contains a digest or not.
+          emptyOrSha=""
         fi
       fi
     fi
@@ -304,7 +320,9 @@ function parseImageName() {
         fi
       fi
       imageWithoutTag="$useImage"
-      if [[ ! -z "$tag" ]]; then
+      if [[ ! -z "$emptyOrSha" ]]; then
+        useImage="$useImage$digest"
+        else
         useImage="$useImage:$tag"
       fi
 
