@@ -45,6 +45,7 @@ jobs:
             ${{ vars.DOCKER_ORG }}/ecs-deploy  # the name needs to be static "ecs-deploy"
             ghcr.io/${{ github.repository_owner }}/ecs-deploy
           tags: |
+            type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major.minor}}
           
