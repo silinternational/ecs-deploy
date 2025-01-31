@@ -46,7 +46,7 @@ Required arguments:
     -p | --profile               AWS Profile to use - If you set this, then aws-access-key, aws-secret-key and region are not needed
     -c | --cluster               Name of ECS cluster
     -i | --image                 Name of Docker image to run, ex: repo/image:latest
-                                 Format: [domain][:port][/repo][/][image][:tag | @digest]
+                                 Format: [domain][:port][/repo][/][image][:tag|@digest]
                                  Examples: mariadb, mariadb:latest, private.registry.com:8000/repo/image:tag
     --aws-instance-profile       Use the IAM role associated with this instance
 
