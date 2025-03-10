@@ -184,24 +184,65 @@ Here's an example of a suitable custom policy for [AWS IAM](https://aws.amazon.c
 
 ```json
 {
-  "Version": "2012-10-17",
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "ecs:DescribeServices",
+                "ecs:UpdateService",
+                "ecs:RegisterTaskDefinition",
+                "ecs:DescribeTasks",
+                "ecs:ListTasks"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:ecs:us-east-1:111111111111:service/cluster-name/service-name",
+                "arn:aws:ecs:us-east-1:111111111111:task-definition/service-name:*",
+                "arn:aws:ecs:us-east-1:111111111111:task/cluster-name/*",
+                "arn:aws:ecs:us-east-1:111111111111:container-instance/cluster-name/*"
+            ]
+        },
+        {
+            "Action": [
+                "ecs:DescribeTaskDefinition",
+                "ecs:DeregisterTaskDefinition",
+                "ecs:ListTaskDefinitions",
+                "ecr:GetAuthorizationToken"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        },
+        {
+            "Action": "iam:PassRole",
+            "Effect": "Allow",
+            "Resource": "arn:aws:iam::111111111111:role/role-name"
+        }
+    ]
+}
+```
+
+Replace the `111111111111` value with your AWS account number. The `iam:PassRole` action can be omitted if your task definition does not specify an ECS task role. If you do not use ECR, the `ecr:GetAuthorizationToken` action can be omitted.
+
+Your ECR policy should limit access to the user or role used for ecs-deploy. Here is an example policy:
+
+```json
+{
+  "Version": "2008-10-17",
   "Statement": [
     {
       "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::111111111111:user/user-name"
+      },
       "Action": [
-        "ecs:DeregisterTaskDefinition",
-        "ecs:DescribeServices",
-        "ecs:DescribeTaskDefinition",
-        "ecs:DescribeTasks",
-        "ecs:ListTasks",
-        "ecs:ListTaskDefinitions",
-        "ecs:RegisterTaskDefinition",
-        "ecs:StartTask",
-        "ecs:StopTask",
-        "ecs:UpdateService",
-        "iam:PassRole"
-      ],
-      "Resource": "*"
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:CompleteLayerUpload",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+      ]
     }
   ]
 }
