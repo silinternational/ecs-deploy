@@ -467,7 +467,7 @@ EOF
                 "name": "cache",
                 "links": [],
                 "mountPoints": [],
-                "image": "redis:latest",
+                "image": "arn:aws:ecs:us-east-1:121212345678:task-definition/app-task-def-two:123",
                 "essential": true,
                 "portMappings": [
                     {
