@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Setup default values for variables
-VERSION="3.10.21"
+VERSION="3.10.22"
 CLUSTER=false
 SERVICE=false
 TASK_DEFINITION=false
@@ -292,7 +292,7 @@ function parseImageName() {
         tag=${!TAGVAR}
         if [[ "x$tag" == "x" ]]; then
           tag="latest"
-        else 
+        else
           # If !TAGVAR isn't empty, we should use the value of the env var as the tag whether IMAGE contains a digest or not.
           emptyOrSha=""
         fi
@@ -379,7 +379,7 @@ function createNewTaskDefJson() {
     # + Filter the def
     if [[ "x$TAGONLY" == "x" ]]; then
       DEF=$( echo "$taskDefinition" \
-            | sed -e 's~"image":.*'"${imageWithoutTag}"'.*,~"image": "'"${useImage}"'",~g' \
+            | sed -e 's~"image":.*'"${imageWithoutTag}:"'.*,~"image": "'"${useImage}"'",~g' \
             | jq '.taskDefinition' )
     else
       DEF=$( echo "$taskDefinition" \
