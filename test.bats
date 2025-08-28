@@ -467,7 +467,7 @@ EOF
                 "name": "cache",
                 "links": [],
                 "mountPoints": [],
-                "image": "arn:aws:ecs:us-east-1:121212345678:task-definition/app-task-def-two:123",
+                "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo-two:1487623908",
                 "essential": true,
                 "portMappings": [
                     {
@@ -491,7 +491,7 @@ EOF
 }
 EOF
 )
-  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "redis:latest", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
+  expected='{ "family": "app-task-def", "volumes": [], "containerDefinitions": [ { "environment": [ { "name": "KEY", "value": "value" } ], "name": "API", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo:1111111111", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 80, "hostPort": 10080 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] }, { "environment": [ { "name": "KEY", "value": "value" } ], "name": "cache", "links": [], "mountPoints": [], "image": "121212345678.dkr.ecr.us-east-1.amazonaws.com/acct/repo-two:1487623908", "essential": true, "portMappings": [ { "protocol": "tcp", "containerPort": 6376, "hostPort": 10376 } ], "entryPoint": [], "memory": 128, "command": [ "/data/run.sh" ], "cpu": 200, "volumesFrom": [] } ], "placementConstraints": null, "networkMode": "bridge" }'
   run createNewTaskDefJson
   [ ! -z $status ]
   [ "$(echo "$output" | jq .)" == "$(echo "$expected" | jq .)" ]
